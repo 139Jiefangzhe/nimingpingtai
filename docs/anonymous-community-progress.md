@@ -11,8 +11,8 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:predeploy-20260507-f64ce626-wecomswitch`
-  - `niming-vault-service:predeploy-20260507-f64ce626-wecomswitch`
+  - `niming-answer-app:predeploy-20260507-b0d9316d-eventsync`
+  - `niming-vault-service:predeploy-20260507-b0d9316d-eventsync`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
   - 新增迁移版本：`v1.8.4`
@@ -84,8 +84,8 @@
 - 远端主机：`47.94.135.253`
 - 预发目录：`/opt/niming-community-predeploy`
 - 当前线上镜像：
-  - `niming-answer-app:predeploy-20260507-f64ce626-wecomswitch`
-  - `niming-vault-service:predeploy-20260507-f64ce626-wecomswitch`
+  - `niming-answer-app:predeploy-20260507-b0d9316d-eventsync`
+  - `niming-vault-service:predeploy-20260507-b0d9316d-eventsync`
 - 当前远端 `.env` 已生效：
   - `WECOM_DEFAULT_RETURN_TO=/community`
   - `VAULT_BASE_URL=http://vault-service:8091`
@@ -98,11 +98,27 @@
 ### 5. 本轮回滚资源
 
 - 环境备份：
-  - `/opt/niming-community-predeploy/.env.bak.20260507-102047.predeploy-20260507-f64ce626-wecomswitch`
+  - `/opt/niming-community-predeploy/.env.bak.20260507-120630.predeploy-20260507-b0d9316d-eventsync`
 - 回滚脚本：
-  - `/opt/niming-community-predeploy/rollback-predeploy-20260507-f64ce626-wecomswitch.sh`
+  - `/opt/niming-community-predeploy/rollback-predeploy-20260507-b0d9316d-eventsync.sh`
 - 发布记录：
-  - `/opt/niming-community-predeploy/release-predeploy-20260507-f64ce626-wecomswitch.txt`
+  - `/opt/niming-community-predeploy/release-predeploy-20260507-b0d9316d-eventsync.txt`
+
+### 6. 本次 `b0d9316d` 发布结果
+
+- 本次发布对应 GitHub 提交：
+  - `b0d9316d build: skip redundant go clean in docker image`
+- 本次镜像构建过程中额外处理了两类构建基础设施问题：
+  - `ui/src/pages/Community/Layout/index.tsx` 补了模板字符串写法，消除了前端构建阶段的 `prefer-template` 报告
+  - `Dockerfile` 中将 `make ui && make clean build` 调整为 `make ui && make build`，避免 Docker 构建卡在冗余的 `go clean ./...`
+- 实际部署切换结果：
+  - 旧 `DEPLOY_TAG`：`predeploy-20260507-f64ce626-wecomswitch`
+  - 新 `DEPLOY_TAG`：`predeploy-20260507-b0d9316d-eventsync`
+  - 仅重建服务：`answer-app`、`vault-service`
+- 已验证：
+  - `https://forum.xingyuanjituan.cn/community` 返回 `200`
+  - `/answer/api/v1/wecom/auth/start?return_to=/community` 返回正式企微 `authorization_url`
+  - 远端 `answer-app` 与 `vault-service` 均为 `healthy`
 
 ## 2026-04-30 进展补充
 
