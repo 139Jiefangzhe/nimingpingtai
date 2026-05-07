@@ -22,6 +22,7 @@ package controller
 import (
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/apache/answer/internal/base/handler"
 	"github.com/apache/answer/internal/service/wecom"
@@ -42,7 +43,29 @@ func (wc *WeComController) AuthStart(ctx *gin.Context) {
 		handler.HandleResponse(ctx, err, nil)
 		return
 	}
+	if wantsWeComAuthStartJSON(ctx) {
+		handler.HandleResponse(ctx, nil, resp)
+		return
+	}
 	ctx.Redirect(http.StatusFound, resp.AuthorizationURL)
+}
+
+func wantsWeComAuthStartJSON(ctx *gin.Context) bool {
+	if strings.EqualFold(ctx.GetHeader("X-Requested-With"), "XMLHttpRequest") {
+		return true
+	}
+
+	accept := strings.ToLower(ctx.GetHeader("Accept"))
+	if strings.Contains(accept, "application/json") &&
+		!strings.Contains(accept, "text/html") {
+		return true
+	}
+
+	if strings.EqualFold(ctx.GetHeader("Sec-Fetch-Dest"), "empty") {
+		return true
+	}
+
+	return false
 }
 
 func (wc *WeComController) AuthCallback(ctx *gin.Context) {
