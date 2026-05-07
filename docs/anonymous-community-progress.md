@@ -11,8 +11,8 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:predeploy-20260507-b47d1802-wecomjson`
-  - `niming-vault-service:predeploy-20260507-b47d1802-wecomjson`
+  - `niming-answer-app:predeploy-20260507-00560492-wecompush`
+  - `niming-vault-service:predeploy-20260507-00560492-wecompush`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
   - 新增迁移版本：`v1.8.4`
@@ -117,6 +117,32 @@
   - `GET /answer/api/v1/wecom/auth/start?return_to=/community` 返回 `302`
   - `Location` 头直出正式企微 `https://open.weixin.qq.com/connect/oauth2/authorize?...`
   - `Accept: application/json` 请求返回 JSON：`{\"data\":{\"authorization_url\":...}}`
+  - 远端 `answer-app` 与 `vault-service` 均为 `healthy`
+
+### 7. 本次 `00560492` 发布结果
+
+- 本次发布对应 GitHub 提交：
+  - `8a777738 feat: notify community authors via wecom`
+  - `00560492 fix: drop unused ask page card import`
+- 已实现帖子被回复时自动通知发帖人：
+  - 社区回复创建后异步触发企微应用消息推送
+  - `answer-app` 通过 Vault lookup 获取发帖人的企微 `user_id`
+  - Vault 新增 `/internal/identity/lookup` 内部接口
+  - 企微发送 Markdown 应用消息，内容包含帖子标题、回复人、摘要和回看链接
+- 本次同时保留 `/questions/add` 页面右侧“如何排版”帮助面板删除，并补掉未使用 `Card` import，保证生产构建通过。
+- 实际部署切换结果：
+  - 新 `DEPLOY_TAG`：`predeploy-20260507-00560492-wecompush`
+  - 仅重建服务：`answer-app`、`vault-service`
+  - 未执行新增 SQL 或数据库版本迁移
+- 本轮回滚资源：
+  - 环境备份：`/opt/niming-community-predeploy/.env.bak.20260507-165121.predeploy-20260507-00560492-wecompush.from-current`
+  - 回滚脚本：`/opt/niming-community-predeploy/rollback-predeploy-20260507-00560492-wecompush.sh`
+  - 发布记录：`/opt/niming-community-predeploy/release-predeploy-20260507-00560492-wecompush.txt`
+- 已验证：
+  - `https://forum.xingyuanjituan.cn/community` 返回 `200`
+  - `GET /answer/api/v1/wecom/auth/start?return_to=/community` 返回 `302`
+  - `Accept: application/json` 请求返回 JSON `authorization_url`
+  - Vault `/internal/identity/lookup` 已生效，空参数请求按预期返回 `400`
   - 远端 `answer-app` 与 `vault-service` 均为 `healthy`
 
 ## 2026-04-30 进展补充
