@@ -11,8 +11,8 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:predeploy-20260507-b5a943aa-wecom302`
-  - `niming-vault-service:predeploy-20260507-b5a943aa-wecom302`
+  - `niming-answer-app:predeploy-20260507-b47d1802-wecomjson`
+  - `niming-vault-service:predeploy-20260507-b47d1802-wecomjson`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
   - 新增迁移版本：`v1.8.4`
@@ -84,8 +84,8 @@
 - 远端主机：`47.94.135.253`
 - 预发目录：`/opt/niming-community-predeploy`
 - 当前线上镜像：
-  - `niming-answer-app:predeploy-20260507-b5a943aa-wecom302`
-  - `niming-vault-service:predeploy-20260507-b5a943aa-wecom302`
+  - `niming-answer-app:predeploy-20260507-b47d1802-wecomjson`
+  - `niming-vault-service:predeploy-20260507-b47d1802-wecomjson`
 - 当前远端 `.env` 已生效：
   - `WECOM_DEFAULT_RETURN_TO=/community`
   - `VAULT_BASE_URL=http://vault-service:8091`
@@ -98,24 +98,25 @@
 ### 5. 本轮回滚资源
 
 - 环境备份：
-  - `/opt/niming-community-predeploy/.env.bak.20260507-143739.predeploy-20260507-b5a943aa-wecom302`
+  - `/opt/niming-community-predeploy/.env.bak.20260507-152236.predeploy-20260507-b47d1802-wecomjson`
 - 回滚脚本：
-  - `/opt/niming-community-predeploy/rollback-predeploy-20260507-b5a943aa-wecom302.sh`
+  - `/opt/niming-community-predeploy/rollback-predeploy-20260507-b47d1802-wecomjson.sh`
 - 发布记录：
-  - `/opt/niming-community-predeploy/release-predeploy-20260507-b5a943aa-wecom302.txt`
+  - `/opt/niming-community-predeploy/release-predeploy-20260507-b47d1802-wecomjson.txt`
 
-### 6. 本次 `b5a943aa` 发布结果
+### 6. 本次 `b47d1802` 发布结果
 
 - 本次发布对应 GitHub 提交：
-  - `b5a943aa fix: redirect wecom auth start مباشرة`
+  - `b47d1802 fix: support json clients for wecom auth start`
 - 实际部署切换结果：
-  - 旧 `DEPLOY_TAG`：`predeploy-20260507-b0d9316d-eventsync`
-  - 新 `DEPLOY_TAG`：`predeploy-20260507-b5a943aa-wecom302`
+  - 旧 `DEPLOY_TAG`：`predeploy-20260507-b5a943aa-wecom302`
+  - 新 `DEPLOY_TAG`：`predeploy-20260507-b47d1802-wecomjson`
   - 仅重建服务：`answer-app`、`vault-service`
 - 已验证：
   - `https://forum.xingyuanjituan.cn/community` 返回 `200`
   - `GET /answer/api/v1/wecom/auth/start?return_to=/community` 返回 `302`
   - `Location` 头直出正式企微 `https://open.weixin.qq.com/connect/oauth2/authorize?...`
+  - `Accept: application/json` 请求返回 JSON：`{\"data\":{\"authorization_url\":...}}`
   - 远端 `answer-app` 与 `vault-service` 均为 `healthy`
 
 ## 2026-04-30 进展补充
