@@ -22,6 +22,7 @@ package wecom
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/url"
 	"os"
 	"strconv"
@@ -397,6 +398,92 @@ func (s *Service) getAccessToken(ctx context.Context, cfg *config) (string, erro
 		return "", errors.BadRequest(reason.UnauthorizedError)
 	}
 	return tokenResp.AccessToken, nil
+}
+
+func (s *Service) NotifyReplyAuthor(ctx context.Context, anonSubjectID, postTitle, replyAuthor, replyExcerpt, postURL string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(anonSubjectID) == "" {
+		return nil
+	}
+
+	lookupResp := &schema.VaultLookupResponse{}
+	lookupHTTPResp, err := s.httpClient.R().
+		SetContext(ctx).
+		SetHeader("X-Vault-Token", cfg.VaultSharedToken).
+		SetBody(map[string]string{"anon_subject_id": anonSubjectID}).
+		SetResult(lookupResp).
+		Post(strings.TrimRight(cfg.VaultBaseURL, "/") + "/internal/identity/lookup")
+	if err != nil {
+		return fmt.Errorf("vault lookup failed: %w", err)
+	}
+	if lookupHTTPResp.IsError() {
+		return fmt.Errorf("vault lookup failed: status=%d body=%s", lookupHTTPResp.StatusCode(), strings.TrimSpace(lookupHTTPResp.String()))
+	}
+	if lookupResp.Status != "" && lookupResp.Status != "active" {
+		return nil
+	}
+	if strings.TrimSpace(lookupResp.UserID) == "" {
+		return fmt.Errorf("vault lookup returned empty user_id for anon_subject_id=%s", anonSubjectID)
+	}
+
+	agentID, err := strconv.Atoi(cfg.AgentID)
+	if err != nil {
+		return fmt.Errorf("invalid WECOM_AGENT_ID %q: %w", cfg.AgentID, err)
+	}
+
+	token, err := s.getAccessToken(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(postTitle) == "" {
+		postTitle = "匿名社区新回复"
+	}
+	if strings.TrimSpace(replyAuthor) == "" {
+		replyAuthor = "匿名用户"
+	}
+	if strings.TrimSpace(replyExcerpt) == "" {
+		replyExcerpt = "（无文字摘要）"
+	}
+	if strings.HasPrefix(postURL, "/") {
+		postURL = strings.TrimRight(cfg.AppBaseURL, "/") + postURL
+	}
+
+	content := fmt.Sprintf(`**匿名社区新回复**
+
+> **帖子**：%s
+> **来自**：%s
+> **摘要**：%s
+
+[点击查看完整内容](%s)`, postTitle, replyAuthor, replyExcerpt, postURL)
+
+	msgReq := &schema.WeComAppMessageReq{
+		ToUser:  lookupResp.UserID,
+		MsgType: "markdown",
+		AgentID: agentID,
+	}
+	msgReq.Markdown.Content = content
+
+	msgResp := &schema.WeComSendMessageResp{}
+	sendHTTPResp, err := s.httpClient.R().
+		SetContext(ctx).
+		SetQueryParam("access_token", token).
+		SetBody(msgReq).
+		SetResult(msgResp).
+		Post("https://qyapi.weixin.qq.com/cgi-bin/message/send")
+	if err != nil {
+		return err
+	}
+	if sendHTTPResp.IsError() {
+		return fmt.Errorf("wecom send message failed: status=%d body=%s", sendHTTPResp.StatusCode(), strings.TrimSpace(sendHTTPResp.String()))
+	}
+	if msgResp.ErrCode != 0 {
+		return fmt.Errorf("wecom send message failed: errcode=%d errmsg=%s", msgResp.ErrCode, msgResp.ErrMsg)
+	}
+	return nil
 }
 
 func loadConfig() (*config, error) {

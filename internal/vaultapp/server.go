@@ -134,6 +134,7 @@ func NewServer(cfg *Config) (*gin.Engine, func() error, error) {
 	r.POST("/internal/identity/update-status", srv.updateStatus)
 	r.POST("/internal/identity/reveal", srv.reveal)
 	r.POST("/internal/audit/log", srv.auditLog)
+	r.POST("/internal/identity/lookup", srv.lookup)
 	return r, engine.Close, nil
 }
 
@@ -288,6 +289,38 @@ func (s *service) status(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, &schema.VaultStatusResponse{
+		AnonSubjectID: mapping.AnonSubjectID,
+		Status:        mapping.Status,
+	})
+}
+
+func (s *service) lookup(ctx *gin.Context) {
+	req := struct {
+		AnonSubjectID string `json:"anon_subject_id"`
+	}{}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.AnonSubjectID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "anon_subject_id is required"})
+		return
+	}
+
+	mapping := &IdentityMapping{}
+	exist, err := s.db.Context(ctx).Where("anon_subject_id = ?", req.AnonSubjectID).Get(mapping)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !exist {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, &schema.VaultLookupResponse{
+		CorpID:        mapping.CorpID,
+		UserID:        mapping.UserID,
 		AnonSubjectID: mapping.AnonSubjectID,
 		Status:        mapping.Status,
 	})

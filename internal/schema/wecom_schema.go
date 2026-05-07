@@ -29,6 +29,20 @@ type WeComAuthCallbackResp struct {
 	AnonSubjectID string `json:"anon_subject_id"`
 }
 
+type WeComAppMessageReq struct {
+	ToUser   string `json:"touser"`
+	MsgType  string `json:"msgtype"`
+	AgentID  int    `json:"agentid"`
+	Markdown struct {
+		Content string `json:"content"`
+	} `json:"markdown"`
+}
+
+type WeComSendMessageResp struct {
+	ErrCode int    `json:"errcode"`
+	ErrMsg  string `json:"errmsg"`
+}
+
 type VaultResolveRequest struct {
 	CorpID      string `json:"corp_id"`
 	UserID      string `json:"user_id"`
@@ -53,6 +67,13 @@ type VaultStatusRequest struct {
 }
 
 type VaultStatusResponse struct {
+	AnonSubjectID string `json:"anon_subject_id"`
+	Status        string `json:"status"`
+}
+
+type VaultLookupResponse struct {
+	CorpID        string `json:"corp_id"`
+	UserID        string `json:"user_id"`
 	AnonSubjectID string `json:"anon_subject_id"`
 	Status        string `json:"status"`
 }

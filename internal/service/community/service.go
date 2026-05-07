@@ -21,7 +21,9 @@ package community
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/apache/answer/internal/base/constant"
 	"github.com/apache/answer/internal/base/data"
@@ -34,9 +36,11 @@ import (
 	questioncommon "github.com/apache/answer/internal/service/question_common"
 	reportservice "github.com/apache/answer/internal/service/report"
 	userexternallogin "github.com/apache/answer/internal/service/user_external_login"
+	wecomservice "github.com/apache/answer/internal/service/wecom"
 	"github.com/apache/answer/pkg/htmltext"
 	"github.com/apache/answer/pkg/uid"
 	"github.com/segmentfault/pacman/errors"
+	"github.com/segmentfault/pacman/log"
 )
 
 type Service struct {
@@ -47,6 +51,7 @@ type Service struct {
 	reportService          *reportservice.ReportService
 	questionCommon         *questioncommon.QuestionCommon
 	userCenterLoginService *userexternallogin.UserCenterLoginService
+	wecomService           *wecomservice.Service
 }
 
 func NewCommunityService(
@@ -57,6 +62,7 @@ func NewCommunityService(
 	reportService *reportservice.ReportService,
 	questionCommon *questioncommon.QuestionCommon,
 	userCenterLoginService *userexternallogin.UserCenterLoginService,
+	wecomService *wecomservice.Service,
 ) *Service {
 	return &Service{
 		data:                   data,
@@ -66,6 +72,7 @@ func NewCommunityService(
 		reportService:          reportService,
 		questionCommon:         questionCommon,
 		userCenterLoginService: userCenterLoginService,
+		wecomService:           wecomService,
 	}
 }
 
@@ -223,6 +230,7 @@ func (s *Service) CreateReply(ctx context.Context, questionID string, req *schem
 	if err = s.decorateReplies(ctx, []*schema.AnswerInfo{answer}); err != nil {
 		return nil, err
 	}
+	go s.notifyReplyAuthor(ctx, questionID, answer)
 	return answer, nil
 }
 
@@ -359,4 +367,52 @@ func makeDiscussionTitle(content string) string {
 		return title + " 讨论"
 	}
 	return title
+}
+
+func (s *Service) notifyReplyAuthor(ctx context.Context, questionID string, reply *schema.AnswerInfo) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("notifyReplyAuthor panic: %v", r)
+		}
+	}()
+	if s.wecomService == nil || reply == nil || reply.UserInfo == nil {
+		return
+	}
+
+	notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+	defer cancel()
+
+	question, err := s.questionService.GetQuestion(notifyCtx, questionID, "", schema.QuestionPermission{})
+	if err != nil || question == nil || question.UserInfo == nil {
+		return
+	}
+	if question.UserInfo.ID == reply.UserInfo.ID {
+		return
+	}
+
+	authorProfile := &entity.AnonymousProfile{UserID: question.UserInfo.ID}
+	has, err := s.data.DB.Context(notifyCtx).Get(authorProfile)
+	if err != nil || !has || authorProfile.AnonSubjectID == "" {
+		return
+	}
+
+	excerpt := htmltext.FetchExcerpt(reply.HTML, "...", 60)
+	if excerpt == "" {
+		excerpt = "（无文字摘要）"
+	}
+
+	postPath := fmt.Sprintf("/community/%s/%s",
+		map[bool]string{true: "questions", false: "discussions"}[question.ChannelType == entity.QuestionChannelQA],
+		uid.EnShortID(questionID),
+	)
+	if err = s.wecomService.NotifyReplyAuthor(
+		notifyCtx,
+		authorProfile.AnonSubjectID,
+		question.Title,
+		reply.UserInfo.DisplayName,
+		excerpt,
+		postPath,
+	); err != nil {
+		log.Errorf("notifyReplyAuthor push failed question_id=%s reply_id=%s: %v", questionID, reply.ID, err)
+	}
 }
