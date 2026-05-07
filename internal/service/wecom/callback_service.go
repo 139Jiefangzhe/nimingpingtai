@@ -23,7 +23,9 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -31,8 +33,10 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/apache/answer/internal/base/reason"
+	"github.com/go-resty/resty/v2"
 	"github.com/segmentfault/pacman/errors"
 	"github.com/segmentfault/pacman/log"
 )
@@ -51,6 +55,7 @@ type callbackMessage struct {
 	ChangeType   string   `xml:"ChangeType"`
 	InfoType     string   `xml:"InfoType"`
 	AgentID      string   `xml:"AgentID"`
+	UserID       string   `xml:"UserID"`
 }
 
 func (s *Service) VerifyURL(msgSignature, timestamp, nonce, echoStr string) (string, error) {
@@ -75,7 +80,7 @@ func (s *Service) VerifyURL(msgSignature, timestamp, nonce, echoStr string) (str
 	return string(plain), nil
 }
 
-func (s *Service) HandleEventCallback(_ context.Context, msgSignature, timestamp, nonce string, body []byte) error {
+func (s *Service) HandleEventCallback(ctx context.Context, msgSignature, timestamp, nonce string, body []byte) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -91,6 +96,25 @@ func (s *Service) HandleEventCallback(_ context.Context, msgSignature, timestamp
 
 	log.Infof("wecom callback received msg_type=%s event=%s change_type=%s info_type=%s from=%s agent_id=%s",
 		msg.MsgType, msg.Event, msg.ChangeType, msg.InfoType, msg.FromUserName, msg.AgentID)
+
+	if msg.MsgType == "event" && msg.Event == "change_contact" {
+		userID := strings.TrimSpace(msg.UserID)
+		if userID == "" {
+			userID = strings.TrimSpace(msg.FromUserName)
+		}
+		switch msg.ChangeType {
+		case "create_user":
+			log.Infof("wecom event: create_user user_id=%s", userID)
+		case "update_user":
+			log.Infof("wecom event: update_user user_id=%s", userID)
+		case "delete_user":
+			log.Infof("wecom event: delete_user user_id=%s, deactivating anonymous identity", userID)
+			if err := s.deactivateUserIdentity(ctx, cfg, userID); err != nil {
+				log.Errorf("failed to deactivate identity for user %s: %v", userID, err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -192,4 +216,27 @@ func pkcs7Unpad(data []byte, blockSize int) ([]byte, error) {
 		}
 	}
 	return data[:len(data)-padding], nil
+}
+
+func (s *Service) deactivateUserIdentity(ctx context.Context, cfg *config, userID string) error {
+	if strings.TrimSpace(userID) == "" {
+		return nil
+	}
+	httpClient := resty.New().SetTimeout(10 * time.Second)
+	_, err := httpClient.R().
+		SetContext(ctx).
+		SetHeader("X-Vault-Token", cfg.VaultSharedToken).
+		SetBody(map[string]string{
+			"corp_id": cfg.CorpID,
+			"user_id": userID,
+			"status":  "inactive",
+		}).
+		Post(strings.TrimRight(cfg.VaultBaseURL, "/") + "/internal/identity/update-status")
+	return err
+}
+
+func (s *Service) makeAnonSubjectIDFromCorpUser(corpID, userID string) string {
+	mac := hmac.New(sha256.New, []byte(corpID+":vault"))
+	_, _ = mac.Write([]byte(corpID + ":" + userID))
+	return hex.EncodeToString(mac.Sum(nil))[:24]
 }

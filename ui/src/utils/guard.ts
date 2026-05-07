@@ -317,8 +317,14 @@ export const tryLoggedAndActivated = () => {
 /**
  * Auto handling of page redirect logic after a successful login
  */
-export const handleLoginRedirect = (handler?: NavigateConfig['handler']) => {
-  const redirectUrl = Storage.get(REDIRECT_PATH_STORAGE_KEY) || RouteAlias.home;
+export const handleLoginRedirect = (
+  handler?: NavigateConfig['handler'],
+  redirectTo?: string | null,
+) => {
+  const redirectUrl =
+    redirectTo && redirectTo.startsWith('/')
+      ? redirectTo
+      : Storage.get(REDIRECT_PATH_STORAGE_KEY) || RouteAlias.home;
   Storage.remove(REDIRECT_PATH_STORAGE_KEY);
   floppyNavigation.navigate(redirectUrl, {
     handler,
@@ -332,6 +338,7 @@ export const handleLoginRedirect = (handler?: NavigateConfig['handler']) => {
 export const handleLoginWithToken = (
   token: string | null,
   handler?: NavigateConfig['handler'],
+  redirectTo?: string | null,
 ) => {
   if (token) {
     Storage.set(LOGGED_TOKEN_STORAGE_KEY, token);
@@ -347,7 +354,7 @@ export const handleLoginWithToken = (
             },
           });
         } else {
-          handleLoginRedirect(handler);
+          handleLoginRedirect(handler, redirectTo);
         }
       });
     });

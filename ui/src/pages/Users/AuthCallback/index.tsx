@@ -30,8 +30,13 @@ const Index: FC = () => {
   const navigate = useNavigate();
   useEffect(() => {
     const token = searchParams.get('access_token');
-    guard.handleLoginWithToken(token, navigate);
-  }, []);
+    const returnTo = searchParams.get('return_to');
+    guard.handleLoginWithToken(
+      token,
+      navigate,
+      returnTo && returnTo.startsWith('/') ? returnTo : undefined,
+    );
+  }, [navigate, searchParams]);
   usePageTags({
     title: t('oauth_callback'),
   });

@@ -1,6 +1,6 @@
 # 企业微信匿名问答 + 帖子交流社区 二开进度
 
-更新时间：2026-04-30
+更新时间：2026-05-07
 
 ## 当前状态
 
@@ -11,8 +11,8 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:predeploy-20260430-fca80abb-rankperm`
-  - `niming-vault-service:predeploy-20260430-fca80abb-rankperm`
+  - `niming-answer-app:predeploy-20260507-f64ce626-wecomswitch`
+  - `niming-vault-service:predeploy-20260507-f64ce626-wecomswitch`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
   - 新增迁移版本：`v1.8.4`
@@ -39,6 +39,70 @@
   - 在当前 `WSL2` 环境中，容器内可直接访问地址为 `http://172.27.213.19:9080/community`
   - 宿主机局域网 IP 为 `10.7.1.161`
   - 若要通过 `http://10.7.1.161:9080/community` 访问，仍需在 Windows 管理员权限下额外配置 `portproxy` 与防火墙放行
+
+## 2026-05-07 进展补充
+
+### 1. `/community` 已切换为正式企微授权入口
+
+- 前端已移除本地 preview bootstrap/login 依赖：
+  - `ui/src/pages/Community/Layout/index.tsx`
+- 未登录用户点击“进入匿名社区”后，会直接跳转：
+  - `/answer/api/v1/wecom/auth/start?return_to=<当前 community 路径>`
+- 页面标题副文案已从“本地预览版”改为“企业微信登录版”。
+- 本地 preview 服务代码仍保留在仓库中，但预发入口链路已不再使用 `COMMUNITY_PREVIEW_MODE=local`。
+
+### 2. 企微授权回跳已改为社区优先
+
+- 企微 `AuthCallback` 默认回跳已从 `/home?tab=discussion` 改为 `/community`：
+  - `internal/service/wecom/service.go`
+- `/users/auth-landing` 已补上 `return_to` 处理：
+  - `ui/src/pages/Users/AuthCallback/index.tsx`
+  - `ui/src/utils/guard.ts`
+- 已在预发环境验证：
+  - 不传 `return_to` 时，企微授权 `state` 默认解码为 `/community`
+  - 显式传 `return_to=/community/qa?tab=new` 时，`state` 可正确透传
+
+### 3. 企微成员事件与 Vault 状态同步已接线
+
+- 企微回调已支持 `change_contact` 事件：
+  - `create_user`
+  - `update_user`
+  - `delete_user`
+- Vault 已新增：
+  - `/internal/identity/update-status`
+- 相关代码位置：
+  - `internal/service/wecom/callback_service.go`
+  - `internal/schema/wecom_schema.go`
+  - `internal/vaultapp/server.go`
+- 当前实现会：
+  - 创建/更新成员时刷新 Vault 身份映射
+  - 删除成员时把匿名身份状态切到 `disabled`
+  - 同步写入 `audit_reveal_log`，来源标记为 `wecom_event`
+
+### 4. 2026-05-07 预发发布已完成
+
+- 远端主机：`47.94.135.253`
+- 预发目录：`/opt/niming-community-predeploy`
+- 当前线上镜像：
+  - `niming-answer-app:predeploy-20260507-f64ce626-wecomswitch`
+  - `niming-vault-service:predeploy-20260507-f64ce626-wecomswitch`
+- 当前远端 `.env` 已生效：
+  - `WECOM_DEFAULT_RETURN_TO=/community`
+  - `VAULT_BASE_URL=http://vault-service:8091`
+  - `COMMUNITY_PREVIEW_MODE` 已移除
+- 当前容器状态：
+  - `answer-app` healthy
+  - `vault-service` healthy
+- 本轮没有新增数据库 schema 迁移版本，属于应用逻辑与预发配置切换。
+
+### 5. 本轮回滚资源
+
+- 环境备份：
+  - `/opt/niming-community-predeploy/.env.bak.20260507-102047.predeploy-20260507-f64ce626-wecomswitch`
+- 回滚脚本：
+  - `/opt/niming-community-predeploy/rollback-predeploy-20260507-f64ce626-wecomswitch.sh`
+- 发布记录：
+  - `/opt/niming-community-predeploy/release-predeploy-20260507-f64ce626-wecomswitch.txt`
 
 ## 2026-04-30 进展补充
 

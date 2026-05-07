@@ -57,6 +57,20 @@ type VaultStatusResponse struct {
 	Status        string `json:"status"`
 }
 
+type VaultUpdateStatusRequest struct {
+	AnonSubjectID string `json:"anon_subject_id"`
+	CorpID        string `json:"corp_id"`
+	UserID        string `json:"user_id"`
+	Status        string `json:"status"`
+	Reason        string `json:"reason"`
+	Metadata      string `json:"metadata"`
+}
+
+type VaultUpdateStatusResponse struct {
+	AnonSubjectID string `json:"anon_subject_id"`
+	Status        string `json:"status"`
+}
+
 type VaultRevealRequest struct {
 	RequesterUserID string `json:"requester_user_id"`
 	AnonSubjectID   string `json:"anon_subject_id"`

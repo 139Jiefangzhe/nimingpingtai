@@ -73,6 +73,15 @@ func (AuditRevealLog) TableName() string {
 	return "audit_reveal_log"
 }
 
+type VaultToken struct {
+	ID        int64     `xorm:"not null pk autoincr BIGINT(20) id"`
+	CreatedAt time.Time `xorm:"created TIMESTAMP created_at"`
+	UpdatedAt time.Time `xorm:"updated TIMESTAMP updated_at"`
+	Token     string    `xorm:"not null unique VARCHAR(255) token"`
+	ExpiresAt time.Time `xorm:"INDEX TIMESTAMP expires_at"`
+	Revoked   bool      `xorm:"not null default false BOOL revoked"`
+}
+
 type identityBlob struct {
 	CorpID      string `json:"corp_id"`
 	UserID      string `json:"user_id"`
@@ -112,7 +121,7 @@ func NewServer(cfg *Config) (*gin.Engine, func() error, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if err = engine.Sync(new(IdentityMapping), new(AuditRevealLog)); err != nil {
+	if err = engine.Sync(new(IdentityMapping), new(AuditRevealLog), new(VaultToken)); err != nil {
 		return nil, nil, err
 	}
 
@@ -122,6 +131,7 @@ func NewServer(cfg *Config) (*gin.Engine, func() error, error) {
 	r.GET("/healthz", func(ctx *gin.Context) { ctx.String(http.StatusOK, "OK") })
 	r.POST("/internal/identity/resolve", srv.resolve)
 	r.POST("/internal/identity/status", srv.status)
+	r.POST("/internal/identity/update-status", srv.updateStatus)
 	r.POST("/internal/identity/reveal", srv.reveal)
 	r.POST("/internal/audit/log", srv.auditLog)
 	return r, engine.Close, nil
@@ -161,17 +171,7 @@ func (s *service) resolve(ctx *gin.Context) {
 
 	if !exist {
 		anonSubjectID := s.makeAnonSubjectID(req.CorpID, req.UserID)
-		blob := identityBlob{
-			CorpID:      req.CorpID,
-			UserID:      req.UserID,
-			DisplayName: req.DisplayName,
-			Email:       req.Email,
-			Mobile:      req.Mobile,
-			Department:  req.Department,
-			Position:    req.Position,
-			Avatar:      req.Avatar,
-			Status:      "active",
-		}
+		blob := mergeIdentityBlob(nil, req, "active")
 		encrypted, err := s.encrypt(blob)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -188,6 +188,31 @@ func (s *service) resolve(ctx *gin.Context) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+	} else {
+		status := mapping.Status
+		if status == "" {
+			status = "active"
+		}
+		var existingBlob *identityBlob
+		if mapping.EncryptedBlob != "" {
+			existingBlob, err = s.decrypt(mapping.EncryptedBlob)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+		blob := mergeIdentityBlob(existingBlob, req, status)
+		encrypted, err := s.encrypt(blob)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		mapping.EncryptedBlob = encrypted
+		mapping.Status = status
+		if _, err = s.db.Context(ctx).ID(mapping.ID).Cols("encrypted_blob", "status").Update(mapping); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	ctx.JSON(http.StatusOK, &schema.VaultResolveResponse{
@@ -197,6 +222,62 @@ func (s *service) resolve(ctx *gin.Context) {
 		Avatar:        "",
 		Status:        mapping.Status,
 	})
+}
+
+func (s *service) updateStatus(ctx *gin.Context) {
+	req := struct {
+		AnonSubjectID string `json:"anon_subject_id"`
+		CorpID        string `json:"corp_id"`
+		UserID        string `json:"user_id"`
+		Status        string `json:"status"`
+	}{}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.Status == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "status is required"})
+		return
+	}
+
+	mapping := &IdentityMapping{}
+	var (
+		exist bool
+		err   error
+	)
+	switch {
+	case req.AnonSubjectID != "":
+		exist, err = s.db.Context(ctx).Where("anon_subject_id = ?", req.AnonSubjectID).Get(mapping)
+	case req.CorpID != "" && req.UserID != "":
+		exist, err = s.db.Context(ctx).Where("corp_id = ?", req.CorpID).And("user_id = ?", req.UserID).Get(mapping)
+	default:
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "anon_subject_id or corp_id/user_id is required"})
+		return
+	}
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !exist {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	mapping.Status = req.Status
+	if _, err = s.db.Context(ctx).ID(mapping.ID).Cols("status").Update(mapping); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	_, _ = s.db.Context(ctx).Insert(&AuditRevealLog{
+		RequesterUserID: "wecom_event",
+		AnonSubjectID:   mapping.AnonSubjectID,
+		Action:          "update_status",
+		Reason:          "status changed to " + req.Status,
+		Metadata:        `{"source":"wecom_event","change_type":"delete_user"}`,
+	})
+
+	ctx.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (s *service) status(ctx *gin.Context) {
@@ -359,4 +440,43 @@ func makeAvatarSeed(anonSubjectID string) string {
 		return anonSubjectID[len(anonSubjectID)-8:]
 	}
 	return anonSubjectID
+}
+
+func mergeIdentityBlob(existing *identityBlob, req *schema.VaultResolveRequest, status string) identityBlob {
+	blob := identityBlob{Status: status}
+	if existing != nil {
+		blob = *existing
+		if blob.Status == "" {
+			blob.Status = status
+		}
+	}
+	if req == nil {
+		return blob
+	}
+	if req.CorpID != "" {
+		blob.CorpID = req.CorpID
+	}
+	if req.UserID != "" {
+		blob.UserID = req.UserID
+	}
+	if req.DisplayName != "" {
+		blob.DisplayName = req.DisplayName
+	}
+	if req.Email != "" {
+		blob.Email = req.Email
+	}
+	if req.Mobile != "" {
+		blob.Mobile = req.Mobile
+	}
+	if req.Department != "" {
+		blob.Department = req.Department
+	}
+	if req.Position != "" {
+		blob.Position = req.Position
+	}
+	if req.Avatar != "" {
+		blob.Avatar = req.Avatar
+	}
+	blob.Status = status
+	return blob
 }

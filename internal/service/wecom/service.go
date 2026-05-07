@@ -78,7 +78,7 @@ func (s *Service) GetAuthorizationURL(returnTo string) (*schema.WeComAuthStartRe
 	if err != nil {
 		return nil, err
 	}
-	if returnTo == "" {
+	if returnTo == "" || !strings.HasPrefix(returnTo, "/") {
 		returnTo = cfg.DefaultReturnTo
 	}
 	state := base64.RawURLEncoding.EncodeToString([]byte(returnTo))
@@ -137,10 +137,13 @@ func (s *Service) HandleAuthCallback(ctx context.Context, code, state string) (*
 		return nil, err
 	}
 
-	returnTo := "/home?tab=discussion"
+	returnTo := "/community"
 	if state != "" {
 		if decoded, decodeErr := base64.RawURLEncoding.DecodeString(state); decodeErr == nil && len(decoded) > 0 {
-			returnTo = string(decoded)
+			candidate := string(decoded)
+			if strings.HasPrefix(candidate, "/") {
+				returnTo = candidate
+			}
 		}
 	}
 
@@ -205,6 +208,30 @@ func (s *Service) ensureAnonymousProfile(ctx context.Context, resolve *schema.Va
 	return nil
 }
 
+func (s *Service) syncAnonymousProfileStatus(ctx context.Context, anonSubjectID, status string) error {
+	if anonSubjectID == "" || status == "" {
+		return nil
+	}
+	link, exist, err := s.userExternalLoginRepo.GetByExternalID(ctx, providerSlug, anonSubjectID)
+	if err != nil || !exist {
+		return err
+	}
+	profile := &entity.AnonymousProfile{UserID: link.UserID}
+	has, err := s.data.DB.Context(ctx).Get(profile)
+	if err != nil {
+		return errors.InternalServer(reason.DatabaseError).WithError(err).WithStack()
+	}
+	if !has {
+		return nil
+	}
+	profile.Status = status
+	_, err = s.data.DB.Context(ctx).ID(profile.UserID).Cols("status").Update(profile)
+	if err != nil {
+		return errors.InternalServer(reason.DatabaseError).WithError(err).WithStack()
+	}
+	return nil
+}
+
 func (s *Service) resolveIdentity(ctx context.Context, cfg *config, req *schema.VaultResolveRequest) (*schema.VaultResolveResponse, error) {
 	resp := &schema.VaultResolveResponse{}
 	_, err := s.httpClient.R().
@@ -213,6 +240,20 @@ func (s *Service) resolveIdentity(ctx context.Context, cfg *config, req *schema.
 		SetBody(req).
 		SetResult(resp).
 		Post(strings.TrimRight(cfg.VaultBaseURL, "/") + "/internal/identity/resolve")
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (s *Service) updateIdentityStatus(ctx context.Context, cfg *config, req *schema.VaultUpdateStatusRequest) (*schema.VaultUpdateStatusResponse, error) {
+	resp := &schema.VaultUpdateStatusResponse{}
+	_, err := s.httpClient.R().
+		SetContext(ctx).
+		SetHeader("X-Vault-Token", cfg.VaultSharedToken).
+		SetBody(req).
+		SetResult(resp).
+		Post(strings.TrimRight(cfg.VaultBaseURL, "/") + "/internal/identity/update-status")
 	if err != nil {
 		return nil, err
 	}
@@ -265,29 +306,16 @@ func (s *Service) fetchUserProfile(ctx context.Context, cfg *config, code string
 	if strings.TrimSpace(code) == "" {
 		return nil, errors.BadRequest(reason.RequestFormatError)
 	}
-	tokenResp := &accessTokenResponse{}
-	_, err := s.httpClient.R().
-		SetContext(ctx).
-		SetQueryParams(map[string]string{
-			"corpid":     cfg.CorpID,
-			"corpsecret": cfg.AppSecret,
-		}).
-		SetResult(tokenResp).
-		Get("https://qyapi.weixin.qq.com/cgi-bin/gettoken")
+	accessToken, err := s.getAccessToken(ctx, cfg)
 	if err != nil {
 		return nil, err
-	}
-	log.Infof("wecom gettoken result errcode=%d errmsg=%s has_access_token=%t", tokenResp.ErrCode, tokenResp.ErrMsg, tokenResp.AccessToken != "")
-	if tokenResp.AccessToken == "" {
-		log.Warnf("wecom gettoken returned empty access token errcode=%d errmsg=%s", tokenResp.ErrCode, tokenResp.ErrMsg)
-		return nil, errors.BadRequest(reason.UnauthorizedError)
 	}
 
 	authResp := &authUserResponse{}
 	_, err = s.httpClient.R().
 		SetContext(ctx).
 		SetQueryParams(map[string]string{
-			"access_token": tokenResp.AccessToken,
+			"access_token": accessToken,
 			"code":         code,
 		}).
 		SetResult(authResp).
@@ -315,12 +343,27 @@ func (s *Service) fetchUserProfile(ctx context.Context, cfg *config, code string
 		return nil, errors.BadRequest(reason.UnauthorizedError)
 	}
 
+	return s.fetchUserProfileByUserID(ctx, cfg, accessToken, authResp.UserID)
+}
+
+func (s *Service) fetchUserProfileByUserID(ctx context.Context, cfg *config, accessToken, userID string) (*userProfileResponse, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.BadRequest(reason.RequestFormatError)
+	}
+	if accessToken == "" {
+		var err error
+		accessToken, err = s.getAccessToken(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	userResp := &userProfileResponse{}
-	_, err = s.httpClient.R().
+	_, err := s.httpClient.R().
 		SetContext(ctx).
 		SetQueryParams(map[string]string{
-			"access_token": tokenResp.AccessToken,
-			"userid":       authResp.UserID,
+			"access_token": accessToken,
+			"userid":       userID,
 		}).
 		SetResult(userResp).
 		Get("https://qyapi.weixin.qq.com/cgi-bin/user/get")
@@ -333,6 +376,27 @@ func (s *Service) fetchUserProfile(ctx context.Context, cfg *config, code string
 		return nil, errors.BadRequest(reason.UserNotFound)
 	}
 	return userResp, nil
+}
+
+func (s *Service) getAccessToken(ctx context.Context, cfg *config) (string, error) {
+	tokenResp := &accessTokenResponse{}
+	_, err := s.httpClient.R().
+		SetContext(ctx).
+		SetQueryParams(map[string]string{
+			"corpid":     cfg.CorpID,
+			"corpsecret": cfg.AppSecret,
+		}).
+		SetResult(tokenResp).
+		Get("https://qyapi.weixin.qq.com/cgi-bin/gettoken")
+	if err != nil {
+		return "", err
+	}
+	log.Infof("wecom gettoken result errcode=%d errmsg=%s has_access_token=%t", tokenResp.ErrCode, tokenResp.ErrMsg, tokenResp.AccessToken != "")
+	if tokenResp.AccessToken == "" {
+		log.Warnf("wecom gettoken returned empty access token errcode=%d errmsg=%s", tokenResp.ErrCode, tokenResp.ErrMsg)
+		return "", errors.BadRequest(reason.UnauthorizedError)
+	}
+	return tokenResp.AccessToken, nil
 }
 
 func loadConfig() (*config, error) {
@@ -348,7 +412,7 @@ func loadConfig() (*config, error) {
 		CallbackAESKey:   os.Getenv("WECOM_CALLBACK_AES_KEY"),
 	}
 	if cfg.DefaultReturnTo == "" {
-		cfg.DefaultReturnTo = "/home?tab=discussion"
+		cfg.DefaultReturnTo = "/community"
 	}
 	if cfg.CorpID == "" || cfg.AppSecret == "" || cfg.AppBaseURL == "" || cfg.VaultBaseURL == "" || cfg.VaultSharedToken == "" {
 		return nil, errors.BadRequest(reason.ReadConfigFailed)
@@ -384,8 +448,8 @@ func (anonymousUserCenter) Description() plugin.UserCenterDesc {
 	return plugin.UserCenterDesc{
 		Name:                      "WeCom Anonymous",
 		DisplayName:               plugin.MakeTranslator(""),
-		LoginRedirectURL:          "/answer/api/v1/wecom/auth/start",
-		SignUpRedirectURL:         "/answer/api/v1/wecom/auth/start",
+		LoginRedirectURL:          "/answer/api/v1/wecom/auth/start?return_to=/community",
+		SignUpRedirectURL:         "/answer/api/v1/wecom/auth/start?return_to=/community",
 		EnabledOriginalUserSystem: true,
 		MustAuthEmailEnabled:      false,
 	}

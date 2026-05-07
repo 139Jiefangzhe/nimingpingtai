@@ -139,14 +139,13 @@ ADMIN_EMAIL=admin@example.local
 EXTERNAL_CONTENT_DISPLAY=always_display
 SITE_ADDR=0.0.0.0:80
 LOG_LEVEL=INFO
-COMMUNITY_PREVIEW_MODE=local
 APP_BASE_URL=http://127.0.0.1:9080
 WECOM_CORP_ID=replace-me
 WECOM_AGENT_ID=replace-me
 WECOM_APP_SECRET=replace-me
 WECOM_CALLBACK_TOKEN=${wecom_callback_token}
 WECOM_CALLBACK_AES_KEY=${wecom_callback_aes_key}
-WECOM_DEFAULT_RETURN_TO=/home?tab=discussion
+WECOM_DEFAULT_RETURN_TO=/community
 VAULT_BASE_URL=http://vault-service:8091
 VAULT_SHARED_TOKEN=${vault_shared_token}
 VAULT_SECRET=${vault_secret}
