@@ -62,6 +62,31 @@ interface FormDataItem {
 }
 
 const saveDraft = new SaveDraft({ type: 'question' });
+const FIXED_TAG_OPTIONS = ['交流', '问答', '投诉建议', '经验分享'] as const;
+
+type FixedTagOption = (typeof FIXED_TAG_OPTIONS)[number];
+
+const buildFixedTag = (tag: FixedTagOption): Type.Tag => ({
+  display_name: tag,
+  slug_name: tag,
+  original_text: '',
+  parsed_text: '',
+});
+
+const normalizeFixedTags = (tags: Type.Tag[]): Type.Tag[] => {
+  const selected = new Set<FixedTagOption>();
+
+  tags.forEach((tag) => {
+    const matchedTag = FIXED_TAG_OPTIONS.find(
+      (option) => option === tag.display_name || option === tag.slug_name,
+    );
+    if (matchedTag) {
+      selected.add(matchedTag);
+    }
+  });
+
+  return FIXED_TAG_OPTIONS.filter((tag) => selected.has(tag)).map(buildFixedTag);
+};
 
 const Ask = () => {
   const initFormData = {
@@ -160,7 +185,7 @@ const Ask = () => {
         } else if (draft) {
           formData.title.value = draft.title;
           formData.content.value = draft.content;
-          formData.tags.value = draft.tags;
+          formData.tags.value = normalizeFixedTags(draft.tags || []);
           formData.answer_content.value = draft.answer_content;
           setCheckState(Boolean(draft.answer_content));
           setHasDraft(true);
@@ -272,11 +297,15 @@ const Ask = () => {
       content: { value, errorMsg: '', isInvalid: false },
     }));
   };
-  const handleTagsChange = (value) =>
-    setFormData({
-      ...formData,
-      tags: { value, errorMsg: '', isInvalid: false },
-    });
+  const handleTagsChange = (value: Type.Tag[]) =>
+    setFormData((prev) => ({
+      ...prev,
+      tags: {
+        value: isEdit ? value : normalizeFixedTags(value),
+        errorMsg: '',
+        isInvalid: false,
+      },
+    }));
 
   const handleAnswerChange = (value: string) =>
     setFormData((prev) => ({
@@ -508,15 +537,62 @@ const Ask = () => {
               </Form.Control.Feedback>
             </Form.Group>
             <Form.Group controlId="tags" className="my-3">
-              <Form.Label>{t('form.fields.tags.label')}</Form.Label>
-              <TagSelector
-                value={formData.tags.value}
-                onChange={handleTagsChange}
-                showRequiredTag
-                maxTagLength={5}
-                isInvalid={formData.tags.isInvalid}
-                errMsg={formData.tags.errorMsg}
-              />
+              <Form.Label>
+                {t('form.fields.tags.label')}
+                <span className="text-danger ms-1">*</span>
+              </Form.Label>
+              {isEdit ? (
+                <TagSelector
+                  value={formData.tags.value}
+                  onChange={handleTagsChange}
+                  showRequiredTag
+                  maxTagLength={5}
+                  isInvalid={formData.tags.isInvalid}
+                  errMsg={formData.tags.errorMsg}
+                />
+              ) : (
+                <>
+                  <div className="d-flex flex-wrap gap-2">
+                    {FIXED_TAG_OPTIONS.map((tag) => {
+                      const isSelected = formData.tags.value.some(
+                        (selectedTag) => selectedTag.display_name === tag,
+                      );
+                      return (
+                        <Button
+                          key={tag}
+                          variant={isSelected ? 'primary' : 'outline-primary'}
+                          onClick={() => {
+                            const currentTags = formData.tags.value;
+                            const exists = currentTags.some(
+                              (selectedTag) => selectedTag.display_name === tag,
+                            );
+                            let newTags: Type.Tag[];
+                            if (exists) {
+                              newTags = currentTags.filter(
+                                (selectedTag) => selectedTag.display_name !== tag,
+                              );
+                            } else {
+                              newTags = [...currentTags, buildFixedTag(tag)];
+                            }
+                            handleTagsChange(newTags);
+                          }}
+                          type="button"
+                          size="sm">
+                          {tag}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  {formData.tags.isInvalid && (
+                    <Form.Control.Feedback type="invalid" className="d-block">
+                      {formData.tags.errorMsg}
+                    </Form.Control.Feedback>
+                  )}
+                  <Form.Text className="text-muted">
+                    请选择至少一个标签
+                  </Form.Text>
+                </>
+              )}
             </Form.Group>
             {!isEdit && (
               <>
