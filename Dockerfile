@@ -43,7 +43,7 @@ RUN sed -i "s#https://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO}#g" /etc/apk/r
     && npm config set registry "${NPM_REGISTRY}" \
     && npm install -g pnpm@9.7.0 \
     && make ui \
-    && make clean build
+    && make build
 
 RUN chmod 755 answer
 RUN ["/bin/bash","-c","script/build_plugin.sh"]
