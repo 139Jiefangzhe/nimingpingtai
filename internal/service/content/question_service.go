@@ -246,6 +246,14 @@ func questionMinimumTags(channelType string, minimumTags int) int {
 }
 
 func (qs *QuestionService) CheckAddQuestion(ctx context.Context, req *schema.QuestionAdd) (errorlist any, err error) {
+	if err = req.ValidateTags(); err != nil {
+		fieldErrors := []*validator.FormErrorField{{
+			ErrorField: "tags",
+			ErrorMsg:   err.Error(),
+		}}
+		return fieldErrors, errors.BadRequest(reason.RequestFormatError).WithMsg(err.Error())
+	}
+
 	minimumTags, err := qs.tagCommon.GetMinimumTags(ctx)
 	if err != nil {
 		return
@@ -326,6 +334,14 @@ func (qs *QuestionService) HasNewTag(ctx context.Context, tags []*schema.TagItem
 
 // AddQuestion add question
 func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.QuestionAdd) (questionInfo any, err error) {
+	if err = req.ValidateTags(); err != nil {
+		fieldErrors := []*validator.FormErrorField{{
+			ErrorField: "tags",
+			ErrorMsg:   err.Error(),
+		}}
+		return fieldErrors, errors.BadRequest(reason.RequestFormatError).WithMsg(err.Error())
+	}
+
 	minimumTags, err := qs.tagCommon.GetMinimumTags(ctx)
 	if err != nil {
 		return
@@ -693,6 +709,14 @@ func (qs *QuestionService) RemoveQuestion(ctx context.Context, req *schema.Remov
 }
 
 func (qs *QuestionService) UpdateQuestionCheckTags(ctx context.Context, req *schema.QuestionUpdate) (errorlist []*validator.FormErrorField, err error) {
+	if err = req.ValidateTags(); err != nil {
+		fieldErrors := []*validator.FormErrorField{{
+			ErrorField: "tags",
+			ErrorMsg:   err.Error(),
+		}}
+		return fieldErrors, errors.BadRequest(reason.RequestFormatError).WithMsg(err.Error())
+	}
+
 	dbinfo, has, err := qs.questionRepo.GetQuestion(ctx, req.ID)
 	if err != nil {
 		return
@@ -932,6 +956,14 @@ func (qs *QuestionService) notificationInviteUser(
 
 // UpdateQuestion update question
 func (qs *QuestionService) UpdateQuestion(ctx context.Context, req *schema.QuestionUpdate) (questionInfo any, err error) {
+	if err = req.ValidateTags(); err != nil {
+		fieldErrors := []*validator.FormErrorField{{
+			ErrorField: "tags",
+			ErrorMsg:   err.Error(),
+		}}
+		return fieldErrors, errors.BadRequest(reason.RequestFormatError).WithMsg(err.Error())
+	}
+
 	var canUpdate bool
 	questionInfo = &schema.QuestionInfoResp{}
 

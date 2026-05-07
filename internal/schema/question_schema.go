@@ -20,6 +20,7 @@
 package schema
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -38,6 +39,41 @@ const (
 	QuestionOperationHide  = "hide"
 	QuestionOperationShow  = "show"
 )
+
+// AllowedQuestionTags defines the fixed tag whitelist for question creation and updates.
+var AllowedQuestionTags = []string{"交流", "问答", "投诉建议", "经验分享"}
+
+func allowedQuestionTagsText() string {
+	return strings.Join(AllowedQuestionTags, "、")
+}
+
+func validateAllowedQuestionTags(tags []*TagItem) error {
+	if len(tags) == 0 {
+		return fmt.Errorf("至少选择一个标签")
+	}
+
+	for _, tag := range tags {
+		tagName := strings.TrimSpace(tag.DisplayName)
+		if tagName == "" {
+			tagName = strings.TrimSpace(tag.SlugName)
+		}
+
+		allowed := false
+		for _, allowedTag := range AllowedQuestionTags {
+			if tagName == allowedTag {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			return fmt.Errorf("标签「%s」不在允许范围内，只能选择：%s",
+				tagName, allowedQuestionTagsText())
+		}
+	}
+
+	return nil
+}
 
 // RemoveQuestionReq delete question request
 type RemoveQuestionReq struct {
@@ -104,6 +140,10 @@ func (req *QuestionAdd) Check() (errFields []*validator.FormErrorField, err erro
 	return nil, nil
 }
 
+func (req *QuestionAdd) ValidateTags() error {
+	return validateAllowedQuestionTags(req.Tags)
+}
+
 type QuestionAddByAnswer struct {
 	// question title
 	Title string `validate:"required,notblank,gte=6,lte=150" json:"title"`
@@ -141,6 +181,10 @@ func (req *QuestionAddByAnswer) Check() (errFields []*validator.FormErrorField, 
 		return errFields, errors.BadRequest(reason.QuestionContentCannotEmpty)
 	}
 	return nil, nil
+}
+
+func (req *QuestionAddByAnswer) ValidateTags() error {
+	return validateAllowedQuestionTags(req.Tags)
 }
 
 type QuestionPermission struct {
@@ -215,6 +259,10 @@ type QuestionUpdateInviteUser struct {
 func (req *QuestionUpdate) Check() (errFields []*validator.FormErrorField, err error) {
 	req.HTML = converter.Markdown2HTML(req.Content)
 	return nil, nil
+}
+
+func (req *QuestionUpdate) ValidateTags() error {
+	return validateAllowedQuestionTags(req.Tags)
 }
 
 type QuestionBaseInfo struct {

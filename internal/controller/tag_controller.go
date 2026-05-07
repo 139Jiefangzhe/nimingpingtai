@@ -20,6 +20,8 @@
 package controller
 
 import (
+	"strings"
+
 	"github.com/apache/answer/internal/base/handler"
 	"github.com/apache/answer/internal/base/middleware"
 	"github.com/apache/answer/internal/base/pager"
@@ -128,6 +130,22 @@ func (tc *TagController) RemoveTag(ctx *gin.Context) {
 func (tc *TagController) AddTag(ctx *gin.Context) {
 	req := &schema.AddTagReq{}
 	if handler.BindAndCheck(ctx, req) {
+		return
+	}
+
+	allowed := false
+	displayName := strings.TrimSpace(req.DisplayName)
+	slugName := strings.TrimSpace(req.SlugName)
+	for _, tag := range schema.AllowedQuestionTags {
+		if displayName == tag || slugName == tag {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		handler.HandleResponse(ctx, errors.BadRequest(reason.RequestFormatError).WithMsg(
+			"只能创建以下标签："+strings.Join(schema.AllowedQuestionTags, "、"),
+		), nil)
 		return
 	}
 

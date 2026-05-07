@@ -69,8 +69,8 @@ type FixedTagOption = (typeof FIXED_TAG_OPTIONS)[number];
 const buildFixedTag = (tag: FixedTagOption): Type.Tag => ({
   display_name: tag,
   slug_name: tag,
-  original_text: '',
-  parsed_text: '',
+  original_text: tag,
+  parsed_text: tag,
 });
 
 const normalizeFixedTags = (tags: Type.Tag[]): Type.Tag[] => {
@@ -589,7 +589,7 @@ const Ask = () => {
                     </Form.Control.Feedback>
                   )}
                   <Form.Text className="text-muted">
-                    请选择至少一个标签
+                    请选择一个或多个标签：交流、问答、投诉建议、经验分享
                   </Form.Text>
                 </>
               )}
