@@ -680,19 +680,6 @@ const Ask = () => {
             )}
           </Form>
         </Col>
-        <Col className="page-right-side mt-4 mt-xl-0">
-          <Card>
-            <Card.Header>
-              {t('title', { keyPrefix: 'how_to_format' })}
-            </Card.Header>
-            <Card.Body
-              className="fmt small"
-              dangerouslySetInnerHTML={{
-                __html: t('desc', { keyPrefix: 'how_to_format' }),
-              }}
-            />
-          </Card>
-        </Col>
       </Row>
     </div>
   );
