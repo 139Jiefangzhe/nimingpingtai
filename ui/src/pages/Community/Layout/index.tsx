@@ -43,9 +43,9 @@ const Layout: FC = () => {
       REDIRECT_PATH_STORAGE_KEY,
       `${location.pathname}${location.search}` || '/community',
     );
-    window.location.href =
-      '/answer/api/v1/wecom/auth/start?return_to=' +
-      encodeURIComponent(location.pathname + location.search);
+    window.location.href = `/answer/api/v1/wecom/auth/start?return_to=${encodeURIComponent(
+      location.pathname + location.search,
+    )}`;
   };
 
   if (!user?.access_token) {
