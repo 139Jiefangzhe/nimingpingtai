@@ -38,7 +38,11 @@ func NewWeComController(wecomService *wecom.Service) *WeComController {
 
 func (wc *WeComController) AuthStart(ctx *gin.Context) {
 	resp, err := wc.wecomService.GetAuthorizationURL(ctx.Query("return_to"))
-	handler.HandleResponse(ctx, err, resp)
+	if err != nil {
+		handler.HandleResponse(ctx, err, nil)
+		return
+	}
+	ctx.Redirect(http.StatusFound, resp.AuthorizationURL)
 }
 
 func (wc *WeComController) AuthCallback(ctx *gin.Context) {
