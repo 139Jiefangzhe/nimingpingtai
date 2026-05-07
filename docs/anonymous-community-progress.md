@@ -11,8 +11,8 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:predeploy-20260507-00560492-wecompush`
-  - `niming-vault-service:predeploy-20260507-00560492-wecompush`
+  - `niming-answer-app:predeploy-20260507-00560492-communitytags`
+  - `niming-vault-service:predeploy-20260507-00560492-communitytags`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
   - 新增迁移版本：`v1.8.4`
@@ -144,6 +144,41 @@
   - `Accept: application/json` 请求返回 JSON `authorization_url`
   - Vault `/internal/identity/lookup` 已生效，空参数请求按预期返回 `400`
   - 远端 `answer-app` 与 `vault-service` 均为 `healthy`
+
+### 8. 固定问题标签白名单预发发布结果
+
+- 本次发布对应 GitHub 提交：
+  - `6a020c18 feat: enforce fixed question tag whitelist`
+  - `4a524a55 feat: unify fixed tags on question edit page`
+  - `00560492 fix: drop unused ask page card import`
+- 已实现：
+  - `/questions/add` 创建页标签输入改为固定四标签按钮：`交流`、`问答`、`投诉建议`、`经验分享`
+  - 编辑页同样收敛到固定四标签，并过滤历史非白名单标签
+  - 提交前前端再次过滤非白名单标签
+  - 后端 `QuestionParams.ValidateTags()` 校验空标签和非法标签
+  - `AddQuestion` / `UpdateQuestion` 均接入后端白名单校验
+- 实际部署切换结果：
+  - 当前 `DEPLOY_TAG`：`predeploy-20260507-00560492-communitytags`
+  - 上一运行 tag：`predeploy-20260507-00560492-wecompush`
+  - 仅重建服务：`answer-app`、`vault-service`
+  - 未执行新增 SQL 或数据库版本迁移
+- 发布过程备注：
+  - 曾尝试发布 `predeploy-20260507-8a777738-communitytags`，但该镜像缺少完整 UI embed，远端日志报 `open build/index.html: file does not exist`
+  - 已立即使用回滚脚本恢复旧版本，确认 `/community` 恢复 `200`
+  - 最终改用 GitHub 最新提交 `00560492` 对应的完整镜像重新标记并发布
+- 本轮回滚资源：
+  - 环境备份：`/opt/niming-community-predeploy/.env.bak.20260507-165840.predeploy-20260507-00560492-communitytags`
+  - 回滚脚本：`/opt/niming-community-predeploy/rollback-predeploy-20260507-00560492-communitytags.sh`
+  - 发布记录：`/opt/niming-community-predeploy/release-predeploy-20260507-00560492-communitytags.txt`
+- 已验证：
+  - 远端 `answer-app` 与 `vault-service` 均为 `healthy`
+  - `https://forum.xingyuanjituan.cn/community` 返回 `200`
+  - `GET /answer/api/v1/wecom/auth/start?return_to=/community` 返回 `302`
+  - `Location` 头直出正式企微 `https://open.weixin.qq.com/connect/oauth2/authorize?...`
+  - 固定标签前端 chunk `/static/js/5088.314fe22d.chunk.js` 已包含四个白名单标签
+  - 固定标签前端 chunk 中未再出现 `TagSelector` / `maxTagLength` 自由输入标识
+- 未完成验证：
+  - API 非法标签绕过测试需要有效登录态或 Bearer Token，本轮未伪造线上用户凭据，因此未直接调用创建问题 API
 
 ## 2026-04-30 进展补充
 
