@@ -30,7 +30,7 @@ import fm from 'front-matter';
 
 import { writeSettingStore } from '@/stores';
 import { usePageTags, usePromptWithUnload } from '@/hooks';
-import { Editor, EditorRef, TagSelector } from '@/components';
+import { Editor, EditorRef } from '@/components';
 import type * as Type from '@/common/interface';
 import { DRAFT_QUESTION_STORAGE_KEY } from '@/common/constants';
 import {
@@ -62,9 +62,10 @@ interface FormDataItem {
 }
 
 const saveDraft = new SaveDraft({ type: 'question' });
-const FIXED_TAG_OPTIONS = ['交流', '问答', '投诉建议', '经验分享'] as const;
+// 固定标签白名单
+const FIXED_TAGS = ['交流', '问答', '投诉建议', '经验分享'] as const;
 
-type FixedTagOption = (typeof FIXED_TAG_OPTIONS)[number];
+type FixedTagOption = (typeof FIXED_TAGS)[number];
 
 const buildFixedTag = (tag: FixedTagOption): Type.Tag => ({
   display_name: tag,
@@ -77,7 +78,7 @@ const normalizeFixedTags = (tags: Type.Tag[]): Type.Tag[] => {
   const selected = new Set<FixedTagOption>();
 
   tags.forEach((tag) => {
-    const matchedTag = FIXED_TAG_OPTIONS.find(
+    const matchedTag = FIXED_TAGS.find(
       (option) => option === tag.display_name || option === tag.slug_name,
     );
     if (matchedTag) {
@@ -85,7 +86,7 @@ const normalizeFixedTags = (tags: Type.Tag[]): Type.Tag[] => {
     }
   });
 
-  return FIXED_TAG_OPTIONS.filter((tag) => selected.has(tag)).map(buildFixedTag);
+  return FIXED_TAGS.filter((tag) => selected.has(tag)).map(buildFixedTag);
 };
 
 const Ask = () => {
@@ -258,13 +259,18 @@ const Ask = () => {
     questionDetail(qid).then((res) => {
       formData.title.value = res.title;
       formData.content.value = res.content;
-      formData.tags.value = res.tags.map((item) => {
-        return {
+      // 收敛标签：只保留白名单内的标签
+      formData.tags.value = res.tags
+        .filter((item) =>
+          FIXED_TAGS.includes(
+            (item.display_name || item.slug_name) as FixedTagOption,
+          ),
+        )
+        .map((item) => ({
           ...item,
           parsed_text: '',
           original_text: '',
-        };
-      });
+        }));
       setImmData({ ...formData });
       setFormData({ ...formData });
     });
@@ -301,7 +307,7 @@ const Ask = () => {
     setFormData((prev) => ({
       ...prev,
       tags: {
-        value: isEdit ? value : normalizeFixedTags(value),
+        value: normalizeFixedTags(value),
         errorMsg: '',
         isInvalid: false,
       },
@@ -413,10 +419,17 @@ const Ask = () => {
     event.preventDefault();
     event.stopPropagation();
 
+    // 最终过滤：确保只提交白名单内的标签
+    const filteredTags = formData.tags.value.filter((tag) =>
+      FIXED_TAGS.includes(
+        (tag.display_name || tag.slug_name) as FixedTagOption,
+      ),
+    );
+
     const params: Type.QuestionParams = {
       title: formData.title.value,
       content: formData.content.value,
-      tags: formData.tags.value,
+      tags: filteredTags,
     };
 
     if (isEdit) {
@@ -541,58 +554,45 @@ const Ask = () => {
                 {t('form.fields.tags.label')}
                 <span className="text-danger ms-1">*</span>
               </Form.Label>
-              {isEdit ? (
-                <TagSelector
-                  value={formData.tags.value}
-                  onChange={handleTagsChange}
-                  showRequiredTag
-                  maxTagLength={5}
-                  isInvalid={formData.tags.isInvalid}
-                  errMsg={formData.tags.errorMsg}
-                />
-              ) : (
-                <>
-                  <div className="d-flex flex-wrap gap-2">
-                    {FIXED_TAG_OPTIONS.map((tag) => {
-                      const isSelected = formData.tags.value.some(
-                        (selectedTag) => selectedTag.display_name === tag,
-                      );
-                      return (
-                        <Button
-                          key={tag}
-                          variant={isSelected ? 'primary' : 'outline-primary'}
-                          onClick={() => {
-                            const currentTags = formData.tags.value;
-                            const exists = currentTags.some(
-                              (selectedTag) => selectedTag.display_name === tag,
-                            );
-                            let newTags: Type.Tag[];
-                            if (exists) {
-                              newTags = currentTags.filter(
-                                (selectedTag) => selectedTag.display_name !== tag,
-                              );
-                            } else {
-                              newTags = [...currentTags, buildFixedTag(tag)];
-                            }
-                            handleTagsChange(newTags);
-                          }}
-                          type="button"
-                          size="sm">
-                          {tag}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  {formData.tags.isInvalid && (
-                    <Form.Control.Feedback type="invalid" className="d-block">
-                      {formData.tags.errorMsg}
-                    </Form.Control.Feedback>
-                  )}
-                  <Form.Text className="text-muted">
-                    请选择一个或多个标签：交流、问答、投诉建议、经验分享
-                  </Form.Text>
-                </>
+              <div className="d-flex flex-wrap gap-2">
+                {FIXED_TAGS.map((tag) => {
+                  const isSelected = formData.tags.value.some(
+                    (selectedTag) => selectedTag.display_name === tag,
+                  );
+                  return (
+                    <Button
+                      key={tag}
+                      variant={isSelected ? 'primary' : 'outline-primary'}
+                      onClick={() => {
+                        const currentTags = formData.tags.value;
+                        const exists = currentTags.some(
+                          (selectedTag) => selectedTag.display_name === tag,
+                        );
+                        let newTags: Type.Tag[];
+                        if (exists) {
+                          newTags = currentTags.filter(
+                            (selectedTag) => selectedTag.display_name !== tag,
+                          );
+                        } else {
+                          newTags = [...currentTags, buildFixedTag(tag)];
+                        }
+                        handleTagsChange(newTags);
+                      }}
+                      type="button"
+                      size="sm">
+                      {tag}
+                    </Button>
+                  );
+                })}
+              </div>
+              {formData.tags.isInvalid && (
+                <Form.Control.Feedback type="invalid" className="d-block">
+                  {formData.tags.errorMsg}
+                </Form.Control.Feedback>
               )}
+              <Form.Text className="text-muted">
+                请选择一个或多个标签：交流、问答、投诉建议、经验分享
+              </Form.Text>
             </Form.Group>
             {!isEdit && (
               <>
