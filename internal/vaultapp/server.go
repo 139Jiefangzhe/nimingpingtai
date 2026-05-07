@@ -226,40 +226,27 @@ func (s *service) resolve(ctx *gin.Context) {
 
 func (s *service) updateStatus(ctx *gin.Context) {
 	req := struct {
-		AnonSubjectID string `json:"anon_subject_id"`
-		CorpID        string `json:"corp_id"`
-		UserID        string `json:"user_id"`
-		Status        string `json:"status"`
+		CorpID string `json:"corp_id"`
+		UserID string `json:"user_id"`
+		Status string `json:"status"`
 	}{}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if req.Status == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "status is required"})
+	if req.CorpID == "" || req.UserID == "" || req.Status == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "corp_id, user_id and status are required"})
 		return
 	}
 
 	mapping := &IdentityMapping{}
-	var (
-		exist bool
-		err   error
-	)
-	switch {
-	case req.AnonSubjectID != "":
-		exist, err = s.db.Context(ctx).Where("anon_subject_id = ?", req.AnonSubjectID).Get(mapping)
-	case req.CorpID != "" && req.UserID != "":
-		exist, err = s.db.Context(ctx).Where("corp_id = ?", req.CorpID).And("user_id = ?", req.UserID).Get(mapping)
-	default:
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "anon_subject_id or corp_id/user_id is required"})
-		return
-	}
+	exist, err := s.db.Context(ctx).Where("corp_id = ?", req.CorpID).And("user_id = ?", req.UserID).Get(mapping)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	if !exist {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "identity mapping not found"})
 		return
 	}
 
@@ -277,7 +264,11 @@ func (s *service) updateStatus(ctx *gin.Context) {
 		Metadata:        `{"source":"wecom_event","change_type":"delete_user"}`,
 	})
 
-	ctx.JSON(http.StatusOK, gin.H{"success": true})
+	ctx.JSON(http.StatusOK, gin.H{
+		"success":         true,
+		"anon_subject_id": mapping.AnonSubjectID,
+		"status":          mapping.Status,
+	})
 }
 
 func (s *service) status(ctx *gin.Context) {

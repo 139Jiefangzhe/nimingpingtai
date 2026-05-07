@@ -23,9 +23,7 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
 	"crypto/sha1"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -33,10 +31,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/apache/answer/internal/base/reason"
-	"github.com/go-resty/resty/v2"
+	"github.com/apache/answer/internal/schema"
 	"github.com/segmentfault/pacman/errors"
 	"github.com/segmentfault/pacman/log"
 )
@@ -105,8 +102,14 @@ func (s *Service) HandleEventCallback(ctx context.Context, msgSignature, timesta
 		switch msg.ChangeType {
 		case "create_user":
 			log.Infof("wecom event: create_user user_id=%s", userID)
+			if err := s.resolveNewUser(ctx, cfg, userID); err != nil {
+				log.Errorf("failed to resolve new user %s: %v", userID, err)
+			}
 		case "update_user":
 			log.Infof("wecom event: update_user user_id=%s", userID)
+			if err := s.syncUserProfile(ctx, cfg, userID); err != nil {
+				log.Errorf("failed to sync user profile %s: %v", userID, err)
+			}
 		case "delete_user":
 			log.Infof("wecom event: delete_user user_id=%s, deactivating anonymous identity", userID)
 			if err := s.deactivateUserIdentity(ctx, cfg, userID); err != nil {
@@ -222,8 +225,7 @@ func (s *Service) deactivateUserIdentity(ctx context.Context, cfg *config, userI
 	if strings.TrimSpace(userID) == "" {
 		return nil
 	}
-	httpClient := resty.New().SetTimeout(10 * time.Second)
-	_, err := httpClient.R().
+	_, err := s.httpClient.R().
 		SetContext(ctx).
 		SetHeader("X-Vault-Token", cfg.VaultSharedToken).
 		SetBody(map[string]string{
@@ -235,8 +237,35 @@ func (s *Service) deactivateUserIdentity(ctx context.Context, cfg *config, userI
 	return err
 }
 
-func (s *Service) makeAnonSubjectIDFromCorpUser(corpID, userID string) string {
-	mac := hmac.New(sha256.New, []byte(corpID+":vault"))
-	_, _ = mac.Write([]byte(corpID + ":" + userID))
-	return hex.EncodeToString(mac.Sum(nil))[:24]
+func (s *Service) resolveNewUser(ctx context.Context, cfg *config, userID string) error {
+	profile, err := s.fetchEventUserProfile(ctx, cfg, userID)
+	if err != nil {
+		return err
+	}
+	_, err = s.resolveIdentity(ctx, cfg, &schema.VaultResolveRequest{
+		CorpID:      cfg.CorpID,
+		UserID:      userID,
+		DisplayName: profile.Name,
+		Avatar:      profile.Avatar,
+		Email:       profile.Email,
+		Mobile:      profile.Mobile,
+		Department:  joinDepartmentIDs(profile.Department),
+		Position:    profile.Position,
+	})
+	return err
+}
+
+func (s *Service) syncUserProfile(ctx context.Context, cfg *config, userID string) error {
+	return s.resolveNewUser(ctx, cfg, userID)
+}
+
+func (s *Service) fetchEventUserProfile(ctx context.Context, cfg *config, userID string) (*userProfileResponse, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+	accessToken, err := s.getAccessToken(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return s.fetchUserProfileByUserID(ctx, cfg, accessToken, userID)
 }
