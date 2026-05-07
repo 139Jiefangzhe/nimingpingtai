@@ -107,6 +107,9 @@ var migrations = []Migration{
 	NewMigration("v1.7.2", "expand avatar column length", expandAvatarColumnLength, false),
 	NewMigration("v1.8.0", "change admin menu", updateAdminMenuSettings, true),
 	NewMigration("v1.8.1", "ai feat", aiFeat, true),
+	NewMigration("v1.8.2", "add anonymous community support", addAnonymousCommunitySupport, false),
+	NewMigration("v1.8.3", "sync postgres serial sequences after seeded inserts", syncPostgresSeededSequences, false),
+	NewMigration("v1.8.4", "remove rank requirements for ordinary user actions", removeRankRequirementsForOrdinaryUserActions, true),
 }
 
 func GetMigrations() []Migration {

@@ -63,7 +63,7 @@ const Index: FC<Props> = ({ visible = false, data, callback }) => {
   const [focusType, setFocusType] = useState('');
   const [editorFocusState, setEditorFocusState] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
-  const [showTips, setShowTips] = useState(data.loggedUserRank < 100);
+  const [showTips, setShowTips] = useState(false);
   const aCaptcha = useCaptchaPlugin('answer');
   const writeInfo = writeSettingStore((state) => state.write);
   const [editorCanSave, setEditorCanSave] = useState(false);
@@ -291,7 +291,7 @@ const Index: FC<Props> = ({ visible = false, data, callback }) => {
 
               <Alert
                 variant="warning"
-                show={data.loggedUserRank < 100 && showTips}
+                show={showTips}
                 onClose={() => setShowTips(false)}
                 dismissible
                 className="mt-3">

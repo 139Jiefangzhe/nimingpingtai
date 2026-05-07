@@ -18,9 +18,13 @@
 FROM golang:1.24-alpine AS golang-builder
 LABEL maintainer="linkinstar@apache.org"
 
-ARG GOPROXY
-# ENV GOPROXY ${GOPROXY:-direct}
-# ENV GOPROXY=https://proxy.golang.com.cn,direct
+ARG ALPINE_REPO=https://mirrors.tuna.tsinghua.edu.cn/alpine
+ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOSUMDB=sum.golang.org
+ARG NPM_REGISTRY=https://registry.npmjs.org
+ENV GOPROXY=${GOPROXY}
+ENV GOSUMDB=${GOSUMDB}
+ENV NPM_REGISTRY=${NPM_REGISTRY}
 
 ENV GOPATH /go
 ENV GOROOT /usr/local/go
@@ -34,7 +38,11 @@ ARG CGO_EXTRA_CFLAGS
 
 COPY . ${BUILD_DIR}
 WORKDIR ${BUILD_DIR}
-RUN apk --no-cache add build-base git bash nodejs npm && npm install -g pnpm@9.7.0 \
+RUN sed -i "s#https://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO}#g" /etc/apk/repositories \
+    && apk --no-cache add build-base git bash nodejs npm \
+    && npm config set registry "${NPM_REGISTRY}" \
+    && npm install -g pnpm@9.7.0 \
+    && make ui \
     && make clean build
 
 RUN chmod 755 answer
@@ -47,10 +55,12 @@ RUN mkdir -p /data/uploads && chmod 777 /data/uploads \
 FROM alpine
 LABEL maintainer="linkinstar@apache.org"
 
+ARG ALPINE_REPO=https://mirrors.tuna.tsinghua.edu.cn/alpine
 ARG TIMEZONE
 ENV TIMEZONE=${TIMEZONE:-"Asia/Shanghai"}
 
-RUN apk update \
+RUN sed -i "s#https://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO}#g" /etc/apk/repositories \
+    && apk update \
     && apk --no-cache add \
         bash \
         ca-certificates \

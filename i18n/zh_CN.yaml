@@ -2261,7 +2261,7 @@ ui:
         text: 选择特权所需的声望值
       msg:
         should_be_number: 输入必须是数字
-        number_larger_1: 数字应该大于等于 1
+        number_larger_1: 数字应该大于等于 0
     badges:
       action: 操作
       active: 活跃的
@@ -2446,5 +2446,4 @@ ui:
     copy: 复制到剪贴板
     copied: 已复制
     external_content_warning: 外部图像/媒体未显示。
-
 

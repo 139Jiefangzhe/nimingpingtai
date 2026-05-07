@@ -1,0 +1,105 @@
+.community-shell {
+  .community-hero {
+    background:
+      radial-gradient(circle at top right, rgba(240, 173, 78, 0.18), transparent 28%),
+      linear-gradient(135deg, rgba(13, 110, 253, 0.05), rgba(25, 135, 84, 0.04));
+  }
+
+  .community-hero-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .community-hero-copy {
+    max-width: 52rem;
+  }
+
+  .community-hero-side {
+    min-width: 280px;
+  }
+
+  .community-session-card {
+    border: 1px solid var(--bs-border-color);
+    background: rgba(255, 255, 255, 0.78);
+    border-radius: 1rem;
+    padding: 0.9rem 1rem;
+  }
+
+  .community-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .community-nav-link {
+    color: var(--bs-body-color);
+    text-decoration: none;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .community-nav-link.active {
+    color: #fff;
+    background: var(--bs-primary);
+    border-color: var(--bs-primary);
+  }
+
+  .community-card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 14px 36px rgba(12, 27, 58, 0.06);
+    border-radius: 1.1rem;
+  }
+
+  .community-card-title {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .community-card-title:hover {
+    color: var(--bs-primary);
+  }
+
+  .community-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.925rem;
+  }
+
+  .community-sidebar-card {
+    position: sticky;
+    top: 1rem;
+  }
+
+  .community-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .community-anon-avatar {
+    color: #163047;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  .community-html {
+    line-height: 1.7;
+  }
+
+  .community-html p:last-child {
+    margin-bottom: 0;
+  }
+
+  .community-composer textarea {
+    min-height: 180px;
+  }
+
+  .community-reply-box textarea {
+    min-height: 120px;
+  }
+}

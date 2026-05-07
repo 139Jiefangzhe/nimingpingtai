@@ -140,7 +140,7 @@ const routes: RouteNode[] = [
             path: 'tags/create',
             page: 'pages/Tags/Create',
             guard: () => {
-              return guard.isAdminOrModerator();
+              return guard.activated();
             },
           },
           {
@@ -245,6 +245,49 @@ const routes: RouteNode[] = [
           {
             path: '/badges/:badge_id',
             page: 'pages/Badges/Detail/index',
+          },
+        ],
+      },
+      {
+        path: 'community',
+        page: 'pages/Community/Layout',
+        children: [
+          {
+            index: true,
+            page: 'pages/Community/Feed',
+          },
+          {
+            path: 'qa',
+            page: 'pages/Community/Feed',
+          },
+          {
+            path: 'discussions/new',
+            page: 'pages/Community/Compose',
+            guard: () => {
+              return guard.logged();
+            },
+          },
+          {
+            path: 'questions/new',
+            page: 'pages/Community/Compose',
+            guard: () => {
+              return guard.logged();
+            },
+          },
+          {
+            path: 'discussions/:id',
+            page: 'pages/Community/Detail',
+          },
+          {
+            path: 'questions/:id',
+            page: 'pages/Community/Detail',
+          },
+          {
+            path: 'moderation',
+            page: 'pages/Community/Moderation',
+            guard: () => {
+              return guard.isAdminOrModerator();
+            },
           },
         ],
       },

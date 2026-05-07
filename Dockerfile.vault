@@ -1,0 +1,27 @@
+FROM golang:1.24-alpine AS builder
+
+ARG ALPINE_REPO=https://mirrors.tuna.tsinghua.edu.cn/alpine
+ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOSUMDB=sum.golang.org
+ENV GOPROXY=${GOPROXY}
+ENV GOSUMDB=${GOSUMDB}
+
+WORKDIR /workspace
+COPY . .
+
+RUN sed -i "s#https://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO}#g" /etc/apk/repositories \
+    && apk --no-cache add build-base git bash \
+    && go build -o /usr/bin/vault ./cmd/vault
+
+FROM alpine
+
+ARG ALPINE_REPO=https://mirrors.tuna.tsinghua.edu.cn/alpine
+
+RUN sed -i "s#https://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO}#g" /etc/apk/repositories \
+    && apk --no-cache add ca-certificates curl tzdata
+
+COPY --from=builder /usr/bin/vault /usr/bin/vault
+
+EXPOSE 8091
+
+ENTRYPOINT ["/usr/bin/vault"]

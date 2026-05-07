@@ -33,6 +33,7 @@ import (
 	collectioncommon "github.com/apache/answer/internal/service/collection_common"
 	"github.com/apache/answer/internal/service/comment"
 	"github.com/apache/answer/internal/service/comment_common"
+	"github.com/apache/answer/internal/service/community"
 	"github.com/apache/answer/internal/service/config"
 	"github.com/apache/answer/internal/service/content"
 	"github.com/apache/answer/internal/service/dashboard"
@@ -67,6 +68,7 @@ import (
 	usercommon "github.com/apache/answer/internal/service/user_common"
 	"github.com/apache/answer/internal/service/user_external_login"
 	"github.com/apache/answer/internal/service/user_notification_config"
+	"github.com/apache/answer/internal/service/wecom"
 	"github.com/google/wire"
 )
 
@@ -74,6 +76,7 @@ import (
 var ProviderSetService = wire.NewSet(
 	comment.NewCommentService,
 	comment_common.NewCommentCommonService,
+	community.NewCommunityService,
 	report.NewReportService,
 	content.NewVoteService,
 	tag.NewTagService,
@@ -134,4 +137,5 @@ var ProviderSetService = wire.NewSet(
 	apikey.NewAPIKeyService,
 	ai_conversation.NewAIConversationService,
 	feature_toggle.NewFeatureToggleService,
+	wecom.NewWeComService,
 )

@@ -89,6 +89,7 @@ func (m *Mentor) InitDB() error {
 	m.do("init default badges", m.initDefaultBadges)
 	m.do("init default ai config", m.initSiteInfoAI)
 	m.do("init default MCP config", m.initSiteInfoMCP)
+	m.do("sync postgres sequences", m.syncPostgresSequences)
 	return m.err
 }
 
@@ -163,6 +164,10 @@ func (m *Mentor) initRolePowerRel() {
 
 func (m *Mentor) initAdminUserRoleRel() {
 	_, m.err = m.engine.Context(m.ctx).Insert(adminUserRoleRel)
+}
+
+func (m *Mentor) syncPostgresSequences() {
+	m.err = syncPostgresIDSequences(m.ctx, m.engine)
 }
 
 func (m *Mentor) initSiteInfoInterface() {

@@ -91,6 +91,7 @@ type QuestionAdd struct {
 	CaptchaCode string `json:"captcha_code"`
 	IP          string `json:"-"`
 	UserAgent   string `json:"-"`
+	ChannelType string `json:"channel_type"`
 }
 
 func (req *QuestionAdd) Check() (errFields []*validator.FormErrorField, err error) {
@@ -251,6 +252,9 @@ type QuestionInfoResp struct {
 	Pin                  int            `json:"pin"`
 	Show                 int            `json:"show"`
 	Status               int            `json:"status"`
+	ChannelType          string         `json:"channel_type"`
+	VisibilityMode       string         `json:"visibility_mode"`
+	ModerationState      string         `json:"moderation_state"`
 	Operation            *Operation     `json:"operation,omitempty"`
 	UserID               string         `json:"-"`
 	LastEditUserID       string         `json:"-"`
@@ -371,6 +375,7 @@ type QuestionPageReq struct {
 	Tag       string `validate:"omitempty,gt=0,lte=100" form:"tag"`
 	Username  string `validate:"omitempty,gt=0,lte=100" form:"username"`
 	InDays    int    `validate:"omitempty,min=1" form:"in_days"`
+	Channel   string `validate:"omitempty,oneof=qa discussion" form:"channel"`
 
 	LoginUserID      string `json:"-"`
 	UserIDBeSearched string `json:"-"`
@@ -385,15 +390,18 @@ const (
 )
 
 type QuestionPageResp struct {
-	ID          string     `json:"id" `
-	CreatedAt   int64      `json:"created_at"`
-	Title       string     `json:"title"`
-	UrlTitle    string     `json:"url_title"`
-	Description string     `json:"description"`
-	Pin         int        `json:"pin"`  // 1: unpin, 2: pin
-	Show        int        `json:"show"` // 0: show, 1: hide
-	Status      int        `json:"status"`
-	Tags        []*TagResp `json:"tags"`
+	ID              string     `json:"id" `
+	CreatedAt       int64      `json:"created_at"`
+	Title           string     `json:"title"`
+	UrlTitle        string     `json:"url_title"`
+	Description     string     `json:"description"`
+	Pin             int        `json:"pin"`  // 1: unpin, 2: pin
+	Show            int        `json:"show"` // 0: show, 1: hide
+	Status          int        `json:"status"`
+	ChannelType     string     `json:"channel_type"`
+	VisibilityMode  string     `json:"visibility_mode"`
+	ModerationState string     `json:"moderation_state"`
+	Tags            []*TagResp `json:"tags"`
 
 	// question statistical information
 	ViewCount       int `json:"view_count"`
@@ -416,12 +424,13 @@ type QuestionPageResp struct {
 }
 
 type QuestionPageRespOperator struct {
-	ID          string `json:"id"`
-	Username    string `json:"username"`
-	Rank        int    `json:"rank"`
-	DisplayName string `json:"display_name"`
-	Status      string `json:"status"`
-	Avatar      string `json:"avatar"`
+	ID          string             `json:"id"`
+	Username    string             `json:"username"`
+	Rank        int                `json:"rank"`
+	DisplayName string             `json:"display_name"`
+	Status      string             `json:"status"`
+	Avatar      string             `json:"avatar"`
+	Anonymous   *AnonymousUserInfo `json:"anonymous,omitempty"`
 }
 
 type AdminQuestionPageReq struct {

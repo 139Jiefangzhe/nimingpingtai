@@ -32,6 +32,15 @@ const (
 	QuestionPin             = 2
 	QuestionShow            = 1
 	QuestionHide            = 2
+
+	QuestionChannelQA         = "qa"
+	QuestionChannelDiscussion = "discussion"
+
+	QuestionVisibilityAnonymous = "anonymous"
+
+	QuestionModerationStateNormal  = "normal"
+	QuestionModerationStatePending = "pending"
+	QuestionModerationStateBlocked = "blocked"
 )
 
 var AdminQuestionSearchStatus = map[string]int{
@@ -74,6 +83,9 @@ type Question struct {
 	PostUpdateTime   time.Time `xorm:"post_update_time TIMESTAMP"`
 	RevisionID       string    `xorm:"not null default 0 BIGINT(20) revision_id"`
 	LinkedCount      int       `xorm:"not null default 0 INT(11) linked_count"`
+	ChannelType      string    `xorm:"not null default 'qa' VARCHAR(20) INDEX channel_type"`
+	VisibilityMode   string    `xorm:"not null default 'anonymous' VARCHAR(20) visibility_mode"`
+	ModerationState  string    `xorm:"not null default 'normal' VARCHAR(20) moderation_state"`
 }
 
 // TableName question table name

@@ -368,17 +368,25 @@ type ActionRecordResp struct {
 	Verify     bool   `json:"verify"`
 }
 
+type AnonymousUserInfo struct {
+	Enabled       bool   `json:"enabled"`
+	AnonSubjectID string `json:"anon_subject_id"`
+	DisplayName   string `json:"display_name"`
+	AvatarSeed    string `json:"avatar_seed"`
+}
+
 type UserBasicInfo struct {
-	ID             string `json:"id"`
-	Username       string `json:"username"`
-	Rank           int    `json:"rank"`
-	DisplayName    string `json:"display_name"`
-	Avatar         string `json:"avatar"`
-	Website        string `json:"website"`
-	Location       string `json:"location"`
-	Language       string `json:"language"`
-	Status         string `json:"status"`
-	SuspendedUntil int64  `json:"suspended_until"`
+	ID             string             `json:"id"`
+	Username       string             `json:"username"`
+	Rank           int                `json:"rank"`
+	DisplayName    string             `json:"display_name"`
+	Avatar         string             `json:"avatar"`
+	Website        string             `json:"website"`
+	Location       string             `json:"location"`
+	Language       string             `json:"language"`
+	Status         string             `json:"status"`
+	SuspendedUntil int64              `json:"suspended_until"`
+	Anonymous      *AnonymousUserInfo `json:"anonymous,omitempty"`
 }
 
 type GetOtherUserInfoByUsernameReq struct {

@@ -134,7 +134,7 @@ func (us *UserCenterLoginService) ExternalLogin(
 	}
 
 	accessToken, _, err := us.userCommonService.CacheLoginUserInfo(
-		ctx, oldUserInfo.ID, oldUserInfo.MailStatus, oldUserInfo.Status, oldExternalLoginUserInfo.ExternalID)
+		ctx, oldUserInfo.ID, oldUserInfo.MailStatus, oldUserInfo.Status, basicUserInfo.ExternalID)
 	return &schema.UserExternalLoginResp{AccessToken: accessToken}, err
 }
 

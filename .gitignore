@@ -36,3 +36,6 @@ dist/
 
 # Environment variables
 .env
+
+# Codex memory storage
+.codex-memory/

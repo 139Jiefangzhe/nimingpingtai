@@ -1,0 +1,29 @@
+services:
+  answer-app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        GOPROXY: "https://goproxy.cn,direct"
+        GOSUMDB: "off"
+    environment:
+      AUTO_INSTALL: "true"
+      DB_TYPE: "sqlite3"
+      DB_FILE: "/data/sqlite3/answer.db"
+      LANGUAGE: "zh-CN"
+      SITE_NAME: "匿名社区预览"
+      SITE_URL: "http://localhost:9080"
+      CONTACT_EMAIL: "admin@example.local"
+      ADMIN_NAME: "admin"
+      ADMIN_PASSWORD: "Admin123456!"
+      ADMIN_EMAIL: "admin@example.local"
+      EXTERNAL_CONTENT_DISPLAY: "always_display"
+      SITE_ADDR: "0.0.0.0:80"
+      COMMUNITY_PREVIEW_MODE: "local"
+    ports:
+      - "9080:80"
+    volumes:
+      - answer-preview-data:/data
+
+volumes:
+  answer-preview-data:

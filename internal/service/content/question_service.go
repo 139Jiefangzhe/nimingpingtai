@@ -228,11 +228,29 @@ func (qs *QuestionService) AddQuestionCheckTags(ctx context.Context, tags []*ent
 	}
 	return []string{}, nil
 }
+
+func normalizeQuestionChannelType(channelType string) string {
+	switch channelType {
+	case entity.QuestionChannelDiscussion:
+		return entity.QuestionChannelDiscussion
+	default:
+		return entity.QuestionChannelQA
+	}
+}
+
+func questionMinimumTags(channelType string, minimumTags int) int {
+	if normalizeQuestionChannelType(channelType) == entity.QuestionChannelDiscussion {
+		return 0
+	}
+	return minimumTags
+}
+
 func (qs *QuestionService) CheckAddQuestion(ctx context.Context, req *schema.QuestionAdd) (errorlist any, err error) {
 	minimumTags, err := qs.tagCommon.GetMinimumTags(ctx)
 	if err != nil {
 		return
 	}
+	minimumTags = questionMinimumTags(req.ChannelType, minimumTags)
 	if len(req.Tags) < minimumTags {
 		errorlist := make([]*validator.FormErrorField, 0)
 		errorlist = append(errorlist, &validator.FormErrorField{
@@ -255,40 +273,47 @@ func (qs *QuestionService) CheckAddQuestion(ctx context.Context, req *schema.Que
 		err = errors.BadRequest(reason.QuestionContentLessThanMinimum)
 		return errorlist, err
 	}
-	recommendExist, err := qs.tagCommon.ExistRecommend(ctx, req.Tags)
-	if err != nil {
-		return
-	}
-	if !recommendExist {
-		errorlist := make([]*validator.FormErrorField, 0)
-		errorlist = append(errorlist, &validator.FormErrorField{
-			ErrorField: "tags",
-			ErrorMsg:   translator.Tr(handler.GetLangByCtx(ctx), reason.RecommendTagEnter),
-		})
-		err = errors.BadRequest(reason.RecommendTagEnter)
-		return errorlist, err
+	if normalizeQuestionChannelType(req.ChannelType) != entity.QuestionChannelDiscussion {
+		var recommendExist bool
+		recommendExist, err = qs.tagCommon.ExistRecommend(ctx, req.Tags)
+		if err != nil {
+			return
+		}
+		if !recommendExist {
+			errorlist := make([]*validator.FormErrorField, 0)
+			errorlist = append(errorlist, &validator.FormErrorField{
+				ErrorField: "tags",
+				ErrorMsg:   translator.Tr(handler.GetLangByCtx(ctx), reason.RecommendTagEnter),
+			})
+			err = errors.BadRequest(reason.RecommendTagEnter)
+			return errorlist, err
+		}
 	}
 
 	tagNameList := make([]string, 0)
 	for _, tag := range req.Tags {
 		tagNameList = append(tagNameList, tag.SlugName)
 	}
-	Tags, tagerr := qs.tagCommon.GetTagListByNames(ctx, tagNameList)
-	if tagerr != nil {
-		return errorlist, tagerr
-	}
-	if !req.CanUseReservedTag {
-		taglist, err := qs.AddQuestionCheckTags(ctx, Tags)
-		errMsg := fmt.Sprintf(`"%s" can only be used by moderators.`,
-			strings.Join(taglist, ","))
-		if err != nil {
-			errorlist := make([]*validator.FormErrorField, 0)
-			errorlist = append(errorlist, &validator.FormErrorField{
-				ErrorField: "tags",
-				ErrorMsg:   errMsg,
-			})
-			err = errors.BadRequest(reason.RecommendTagEnter)
-			return errorlist, err
+	Tags := make([]*entity.Tag, 0)
+	if len(tagNameList) > 0 {
+		var tagerr error
+		Tags, tagerr = qs.tagCommon.GetTagListByNames(ctx, tagNameList)
+		if tagerr != nil {
+			return errorlist, tagerr
+		}
+		if !req.CanUseReservedTag {
+			taglist, err := qs.AddQuestionCheckTags(ctx, Tags)
+			errMsg := fmt.Sprintf(`"%s" can only be used by moderators.`,
+				strings.Join(taglist, ","))
+			if err != nil {
+				errorlist := make([]*validator.FormErrorField, 0)
+				errorlist = append(errorlist, &validator.FormErrorField{
+					ErrorField: "tags",
+					ErrorMsg:   errMsg,
+				})
+				err = errors.BadRequest(reason.RecommendTagEnter)
+				return errorlist, err
+			}
 		}
 	}
 	return nil, nil
@@ -305,6 +330,7 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 	if err != nil {
 		return
 	}
+	minimumTags = questionMinimumTags(req.ChannelType, minimumTags)
 	if len(req.Tags) < minimumTags {
 		errorlist := make([]*validator.FormErrorField, 0)
 		errorlist = append(errorlist, &validator.FormErrorField{
@@ -327,18 +353,21 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 		err = errors.BadRequest(reason.QuestionContentLessThanMinimum)
 		return errorlist, err
 	}
-	recommendExist, err := qs.tagCommon.ExistRecommend(ctx, req.Tags)
-	if err != nil {
-		return
-	}
-	if !recommendExist {
-		errorlist := make([]*validator.FormErrorField, 0)
-		errorlist = append(errorlist, &validator.FormErrorField{
-			ErrorField: "tags",
-			ErrorMsg:   translator.Tr(handler.GetLangByCtx(ctx), reason.RecommendTagEnter),
-		})
-		err = errors.BadRequest(reason.RecommendTagEnter)
-		return errorlist, err
+	if normalizeQuestionChannelType(req.ChannelType) != entity.QuestionChannelDiscussion {
+		var recommendExist bool
+		recommendExist, err = qs.tagCommon.ExistRecommend(ctx, req.Tags)
+		if err != nil {
+			return
+		}
+		if !recommendExist {
+			errorlist := make([]*validator.FormErrorField, 0)
+			errorlist = append(errorlist, &validator.FormErrorField{
+				ErrorField: "tags",
+				ErrorMsg:   translator.Tr(handler.GetLangByCtx(ctx), reason.RecommendTagEnter),
+			})
+			err = errors.BadRequest(reason.RecommendTagEnter)
+			return errorlist, err
+		}
 	}
 
 	tagNameList := make([]string, 0)
@@ -346,22 +375,25 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 		tag.SlugName = strings.ReplaceAll(tag.SlugName, " ", "-")
 		tagNameList = append(tagNameList, tag.SlugName)
 	}
-	tags, tagerr := qs.tagCommon.GetTagListByNames(ctx, tagNameList)
-	if tagerr != nil {
-		return questionInfo, tagerr
-	}
-	if !req.CanUseReservedTag {
-		taglist, err := qs.AddQuestionCheckTags(ctx, tags)
-		errMsg := fmt.Sprintf(`"%s" can only be used by moderators.`,
-			strings.Join(taglist, ","))
-		if err != nil {
-			errorlist := make([]*validator.FormErrorField, 0)
-			errorlist = append(errorlist, &validator.FormErrorField{
-				ErrorField: "tags",
-				ErrorMsg:   errMsg,
-			})
-			err = errors.BadRequest(reason.RecommendTagEnter)
-			return errorlist, err
+	tags := make([]*entity.Tag, 0)
+	if len(tagNameList) > 0 {
+		tags, tagerr := qs.tagCommon.GetTagListByNames(ctx, tagNameList)
+		if tagerr != nil {
+			return questionInfo, tagerr
+		}
+		if !req.CanUseReservedTag {
+			taglist, err := qs.AddQuestionCheckTags(ctx, tags)
+			errMsg := fmt.Sprintf(`"%s" can only be used by moderators.`,
+				strings.Join(taglist, ","))
+			if err != nil {
+				errorlist := make([]*validator.FormErrorField, 0)
+				errorlist = append(errorlist, &validator.FormErrorField{
+					ErrorField: "tags",
+					ErrorMsg:   errMsg,
+				})
+				err = errors.BadRequest(reason.RecommendTagEnter)
+				return errorlist, err
+			}
 		}
 	}
 
@@ -381,6 +413,9 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 	question.PostUpdateTime = now
 	question.Pin = entity.QuestionUnPin
 	question.Show = entity.QuestionShow
+	question.ChannelType = normalizeQuestionChannelType(req.ChannelType)
+	question.VisibilityMode = entity.QuestionVisibilityAnonymous
+	question.ModerationState = entity.QuestionModerationStateNormal
 	// question.UpdatedAt = nil
 	err = qs.questionRepo.AddQuestion(ctx, question)
 	if err != nil {
@@ -400,13 +435,15 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 			return nil, err
 		}
 	}
-	objectTagData := schema.TagChange{}
-	objectTagData.ObjectID = question.ID
-	objectTagData.Tags = req.Tags
-	objectTagData.UserID = req.UserID
-	errorlist, err := qs.ChangeTag(ctx, &objectTagData)
-	if err != nil {
-		return errorlist, err
+	if len(req.Tags) > 0 {
+		objectTagData := schema.TagChange{}
+		objectTagData.ObjectID = question.ID
+		objectTagData.Tags = req.Tags
+		objectTagData.UserID = req.UserID
+		errorlist, err := qs.tagCommon.ObjectChangeTag(ctx, &objectTagData, minimumTags)
+		if err != nil {
+			return errorlist, err
+		}
 	}
 	_ = qs.questionRepo.UpdateSearch(ctx, question.ID)
 

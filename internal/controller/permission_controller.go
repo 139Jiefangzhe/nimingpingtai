@@ -47,6 +47,8 @@ func NewPermissionController(rankService *rank.RankService) *PermissionControlle
 // @Success 200 {object} handler.RespBody{data=map[string]bool}
 // @Router /answer/api/v1/permission [get]
 func (u *PermissionController) GetPermission(ctx *gin.Context) {
+	ctx.Header("Cache-Control", "no-store")
+
 	req := &schema.GetPermissionReq{}
 	if handler.BindAndCheck(ctx, req) {
 		return

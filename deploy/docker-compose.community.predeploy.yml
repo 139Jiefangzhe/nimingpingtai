@@ -1,0 +1,119 @@
+services:
+  postgres-main:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_MAIN_DB:?set POSTGRES_MAIN_DB}
+      POSTGRES_USER: ${POSTGRES_MAIN_USER:?set POSTGRES_MAIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_MAIN_PASSWORD:?set POSTGRES_MAIN_PASSWORD}
+    volumes:
+      - postgres-main-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  postgres-vault:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_VAULT_DB:?set POSTGRES_VAULT_DB}
+      POSTGRES_USER: ${POSTGRES_VAULT_USER:?set POSTGRES_VAULT_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_VAULT_PASSWORD:?set POSTGRES_VAULT_PASSWORD}
+    volumes:
+      - postgres-vault-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  vault-service:
+    image: niming-vault-service:${DEPLOY_TAG:?set DEPLOY_TAG}
+    restart: unless-stopped
+    environment:
+      VAULT_LISTEN_ADDR: ":8091"
+      VAULT_DB_DRIVER: "postgres"
+      VAULT_DB_DSN: "postgres://${POSTGRES_VAULT_USER:?set POSTGRES_VAULT_USER}:${POSTGRES_VAULT_PASSWORD:?set POSTGRES_VAULT_PASSWORD}@postgres-vault:5432/${POSTGRES_VAULT_DB:?set POSTGRES_VAULT_DB}?sslmode=disable"
+      VAULT_SHARED_TOKEN: ${VAULT_SHARED_TOKEN:?set VAULT_SHARED_TOKEN}
+      VAULT_SECRET: ${VAULT_SECRET:?set VAULT_SECRET}
+    depends_on:
+      postgres-vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8091/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  answer-app:
+    image: niming-answer-app:${DEPLOY_TAG:?set DEPLOY_TAG}
+    restart: unless-stopped
+    environment:
+      AUTO_INSTALL: ${AUTO_INSTALL-}
+      DB_TYPE: ${DB_TYPE:?set DB_TYPE}
+      DB_HOST: ${DB_HOST:?set DB_HOST}
+      DB_NAME: ${DB_NAME:?set DB_NAME}
+      DB_USERNAME: ${DB_USERNAME:?set DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      DB_FILE: ${DB_FILE-}
+      LANGUAGE: ${LANGUAGE:?set LANGUAGE}
+      SITE_NAME: ${SITE_NAME:?set SITE_NAME}
+      SITE_URL: ${SITE_URL:?set SITE_URL}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:?set CONTACT_EMAIL}
+      ADMIN_NAME: ${ADMIN_NAME:?set ADMIN_NAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL}
+      EXTERNAL_CONTENT_DISPLAY: ${EXTERNAL_CONTENT_DISPLAY:-always_display}
+      SITE_ADDR: ${SITE_ADDR:-0.0.0.0:80}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      COMMUNITY_PREVIEW_MODE: ${COMMUNITY_PREVIEW_MODE-}
+      APP_BASE_URL: ${APP_BASE_URL:?set APP_BASE_URL}
+      WECOM_CORP_ID: ${WECOM_CORP_ID:?set WECOM_CORP_ID}
+      WECOM_AGENT_ID: ${WECOM_AGENT_ID:?set WECOM_AGENT_ID}
+      WECOM_APP_SECRET: ${WECOM_APP_SECRET:?set WECOM_APP_SECRET}
+      WECOM_CALLBACK_TOKEN: ${WECOM_CALLBACK_TOKEN:?set WECOM_CALLBACK_TOKEN}
+      WECOM_CALLBACK_AES_KEY: ${WECOM_CALLBACK_AES_KEY:?set WECOM_CALLBACK_AES_KEY}
+      WECOM_DEFAULT_RETURN_TO: ${WECOM_DEFAULT_RETURN_TO:-/home?tab=discussion}
+      VAULT_BASE_URL: ${VAULT_BASE_URL:?set VAULT_BASE_URL}
+      VAULT_SHARED_TOKEN: ${VAULT_SHARED_TOKEN:?set VAULT_SHARED_TOKEN}
+    depends_on:
+      postgres-main:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault-service:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${ANSWER_BIND_PORT:-9080}:80"
+    volumes:
+      - answer-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:80/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+volumes:
+  answer-data:
+  postgres-main-data:
+  postgres-vault-data:
+  redis-data:

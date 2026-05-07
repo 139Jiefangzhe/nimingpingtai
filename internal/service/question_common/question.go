@@ -375,6 +375,9 @@ func (qs *QuestionCommon) FormatQuestionsPage(
 			UrlTitle:         htmltext.UrlTitle(questionInfo.Title),
 			Description:      htmltext.FetchExcerpt(questionInfo.ParsedText, "...", 240),
 			Status:           questionInfo.Status,
+			ChannelType:      questionInfo.ChannelType,
+			VisibilityMode:   questionInfo.VisibilityMode,
+			ModerationState:  questionInfo.ModerationState,
 			ViewCount:        questionInfo.ViewCount,
 			UniqueViewCount:  questionInfo.UniqueViewCount,
 			VoteCount:        questionInfo.VoteCount,
@@ -670,6 +673,9 @@ func (qs *QuestionCommon) ShowFormat(ctx context.Context, data *entity.Question)
 	info.Status = data.Status
 	info.Pin = data.Pin
 	info.Show = data.Show
+	info.ChannelType = data.ChannelType
+	info.VisibilityMode = data.VisibilityMode
+	info.ModerationState = data.ModerationState
 	info.UserID = data.UserID
 	info.LastEditUserID = data.LastEditUserID
 	if data.LastAnswerID != "0" {

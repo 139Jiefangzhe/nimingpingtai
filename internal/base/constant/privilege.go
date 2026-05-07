@@ -24,7 +24,7 @@ import "github.com/apache/answer/internal/base/reason"
 type Privilege struct {
 	Key   string `json:"key"`
 	Label string `json:"label"`
-	Value int    `validate:"gte=1" json:"value"`
+	Value int    `validate:"gte=0" json:"value"`
 }
 
 const (

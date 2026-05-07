@@ -94,7 +94,7 @@ const Index: FC = () => {
             if (Number.isNaN(val)) {
               return t('msg.should_be_number');
             }
-            if (val < 1) {
+            if (val < 0) {
               return t('msg.number_larger_1');
             }
             return true;

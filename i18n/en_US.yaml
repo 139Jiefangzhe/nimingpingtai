@@ -2297,7 +2297,7 @@ ui:
         text: Choose the reputation required for the privileges
       msg:
         should_be_number: the input should be number
-        number_larger_1: number should be equal or larger than 1
+        number_larger_1: number should be equal or larger than 0
     badges:
       action: Action
       active: Active
@@ -2482,5 +2482,4 @@ ui:
     copy: Copy to clipboard
     copied: Copied
     external_content_warning: External images/media are not displayed.
-
 

@@ -35,6 +35,7 @@ type AnswerAPIRouter struct {
 	tagController                 *controller.TagController
 	followController              *controller.FollowController
 	collectionController          *controller.CollectionController
+	communityController           *controller.CommunityController
 	questionController            *controller.QuestionController
 	answerController              *controller.AnswerController
 	searchController              *controller.SearchController
@@ -62,6 +63,7 @@ type AnswerAPIRouter struct {
 	aiConversationController      *controller.AIConversationController
 	aiConversationAdminController *controller_admin.AIConversationAdminController
 	mcpController                 *controller.MCPController
+	wecomController               *controller.WeComController
 }
 
 func NewAnswerAPIRouter(
@@ -73,6 +75,7 @@ func NewAnswerAPIRouter(
 	tagController *controller.TagController,
 	followController *controller.FollowController,
 	collectionController *controller.CollectionController,
+	communityController *controller.CommunityController,
 	questionController *controller.QuestionController,
 	answerController *controller.AnswerController,
 	searchController *controller.SearchController,
@@ -100,6 +103,7 @@ func NewAnswerAPIRouter(
 	aiConversationController *controller.AIConversationController,
 	aiConversationAdminController *controller_admin.AIConversationAdminController,
 	mcpController *controller.MCPController,
+	wecomController *controller.WeComController,
 ) *AnswerAPIRouter {
 	return &AnswerAPIRouter{
 		langController:                langController,
@@ -110,6 +114,7 @@ func NewAnswerAPIRouter(
 		tagController:                 tagController,
 		followController:              followController,
 		collectionController:          collectionController,
+		communityController:           communityController,
 		questionController:            questionController,
 		answerController:              answerController,
 		searchController:              searchController,
@@ -137,6 +142,7 @@ func NewAnswerAPIRouter(
 		aiConversationController:      aiConversationController,
 		aiConversationAdminController: aiConversationAdminController,
 		mcpController:                 mcpController,
+		wecomController:               wecomController,
 	}
 }
 
@@ -163,6 +169,15 @@ func (a *AnswerAPIRouter) RegisterMustUnAuthAnswerAPIRouter(authUserMiddleware *
 
 	// plugins
 	r.GET("/plugin/status", a.pluginController.GetAllPluginStatus)
+
+	// wecom
+	r.GET("/wecom/auth/start", a.wecomController.AuthStart)
+	r.GET("/wecom/auth/callback", a.wecomController.AuthCallback)
+	r.Any("/wecom/callback", a.wecomController.Callback)
+
+	// community preview
+	r.GET("/community/preview/bootstrap", a.communityController.PreviewBootstrap)
+	r.POST("/community/preview/login", a.communityController.PreviewLogin)
 }
 
 func (a *AnswerAPIRouter) RegisterUnAuthAnswerAPIRouter(r *gin.RouterGroup) {
@@ -214,6 +229,12 @@ func (a *AnswerAPIRouter) RegisterUnAuthAnswerAPIRouter(r *gin.RouterGroup) {
 	r.GET("/badge/user/awards/recent", a.badgeController.GetRecentBadgeAwardListByUsername)
 	r.GET("/badge/user/awards", a.badgeController.GetAllBadgeAwardListByUsername)
 	r.GET("/badges", a.badgeController.GetBadgeList)
+
+	// community
+	r.GET("/home", a.communityController.GetHome)
+	r.GET("/questions/:id", a.communityController.GetQuestionDetail)
+	r.GET("/discussions/:id", a.communityController.GetDiscussionDetail)
+	r.GET("/replies/:answerId/comments", a.communityController.GetReplyComments)
 }
 
 func (a *AnswerAPIRouter) RegisterAuthUserWithAnyStatusAnswerAPIRouter(r *gin.RouterGroup) {
@@ -276,6 +297,11 @@ func (a *AnswerAPIRouter) RegisterAnswerAPIRouter(r *gin.RouterGroup) {
 	r.PUT("/question/reopen", a.questionController.ReopenQuestion)
 	r.GET("/question/similar", a.questionController.GetSimilarQuestions)
 	r.POST("/question/recover", a.questionController.QuestionRecover)
+	r.POST("/questions", a.communityController.CreateQuestion)
+	r.POST("/discussions", a.communityController.CreateDiscussion)
+	r.POST("/content/:questionId/replies", a.communityController.CreateReply)
+	r.POST("/replies/:answerId/comments", a.communityController.CreateComment)
+	r.POST("/reports", a.communityController.AddReport)
 
 	// answer
 	r.POST("/answer", a.answerController.AddAnswer)
@@ -418,6 +444,8 @@ func (a *AnswerAPIRouter) RegisterAnswerAdminAPIRouter(r *gin.RouterGroup) {
 
 	// api key
 	r.GET("/api-key/all", a.apiKeyController.GetAllAPIKeys)
+	r.POST("/moderation/actions", a.communityController.Moderate)
+	r.POST("/audit/reveal", a.communityController.AuditReveal)
 	r.POST("/api-key", a.apiKeyController.AddAPIKey)
 	r.PUT("/api-key", a.apiKeyController.UpdateAPIKey)
 	r.DELETE("/api-key", a.apiKeyController.DeleteAPIKey)

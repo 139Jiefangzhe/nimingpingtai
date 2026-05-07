@@ -115,6 +115,9 @@ func (rs *RankService) CheckOperationPermission(ctx context.Context, userID stri
 			return true, nil
 		}
 	}
+	if isRankBypassedLoggedInAction(action) {
+		return true, nil
+	}
 
 	can, _ = rs.checkUserRank(ctx, userInfo.ID, userInfo.Rank, PermissionPrefix+action)
 	return can, nil
@@ -141,6 +144,10 @@ func (rs *RankService) CheckOperationPermissionsForRanks(ctx context.Context, us
 	powerMapping := rs.getUserPowerMapping(ctx, userID)
 	for idx, action := range actions {
 		if powerMapping[action] {
+			can[idx] = true
+			continue
+		}
+		if isRankBypassedLoggedInAction(action) {
 			can[idx] = true
 			continue
 		}
@@ -218,8 +225,32 @@ func (rs *RankService) CheckVotePermission(ctx context.Context, userID, objectID
 	if powerMapping[action] {
 		return true, 0, nil
 	}
+	if isRankBypassedLoggedInAction(action) {
+		return true, 0, nil
+	}
 	can, needRank = rs.checkUserRank(ctx, userInfo.ID, userInfo.Rank, PermissionPrefix+action)
 	return can, needRank, nil
+}
+
+func isRankBypassedLoggedInAction(action string) bool {
+	switch action {
+	case permission.QuestionAdd,
+		permission.AnswerAdd,
+		permission.CommentAdd,
+		permission.ReportAdd,
+		permission.TagAdd,
+		permission.QuestionVoteUp,
+		permission.QuestionVoteDown,
+		permission.AnswerVoteUp,
+		permission.AnswerVoteDown,
+		permission.CommentVoteUp,
+		permission.CommentVoteDown,
+		permission.AnswerInviteSomeoneToAnswer,
+		permission.LinkUrlLimit:
+		return true
+	default:
+		return false
+	}
 }
 
 // getUserPowerMapping get user power mapping

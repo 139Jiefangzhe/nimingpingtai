@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  postgres-main:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: answer
+      POSTGRES_USER: answer
+      POSTGRES_PASSWORD: answer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-main-data:/var/lib/postgresql/data
+
+  postgres-vault:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vault
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: vault
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-vault-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  vault-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile.vault
+    environment:
+      VAULT_LISTEN_ADDR: ":8091"
+      VAULT_DB_DRIVER: postgres
+      VAULT_DB_DSN: "postgres://vault:vault@postgres-vault:5432/vault?sslmode=disable"
+      VAULT_SHARED_TOKEN: "change-me"
+      VAULT_SECRET: "change-me-32-byte-secret"
+    ports:
+      - "8091:8091"
+    depends_on:
+      - postgres-vault
+
+  answer-app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      APP_BASE_URL: "http://localhost:9080"
+      WECOM_CORP_ID: "replace-me"
+      WECOM_AGENT_ID: "replace-me"
+      WECOM_APP_SECRET: "replace-me"
+      WECOM_DEFAULT_RETURN_TO: "/home?tab=discussion"
+      VAULT_BASE_URL: "http://vault-service:8091"
+      VAULT_SHARED_TOKEN: "change-me"
+    ports:
+      - "9080:80"
+    depends_on:
+      - postgres-main
+      - redis
+      - vault-service
+
+volumes:
+  postgres-main-data:
+  postgres-vault-data:
