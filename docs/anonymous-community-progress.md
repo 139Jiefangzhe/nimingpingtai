@@ -11,7 +11,7 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:hotfix-20260508-150342-6c23b02d-composehint`
+  - `niming-answer-app:hotfix-20260508-165453-e4908275-navtags`
   - `niming-vault-service:predeploy-20260507-00560492-communitytags`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
@@ -209,6 +209,46 @@
   - `https://forum.xingyuanjituan.cn/community/discussions/new` 返回 `200`
   - 远端容器二进制中已包含 `请选择一个或多个标签`
   - 远端容器二进制中未再出现 `示例：Culture, Workflow, Product` 或默认 `Culture, Workflow`
+
+### 2. 匿名社区导航合并与社区标签校验热修复
+
+- 本次发布对应 GitHub 提交：
+  - `e4908275 feat: merge community nav and fix compose tags`
+- 已修改：
+  - `ui/src/pages/Community/Layout/index.tsx`
+  - `ui/src/pages/Community/Feed/index.tsx`
+  - `ui/src/pages/Community/Compose/index.tsx`
+  - `internal/schema/question_schema.go`
+- 已实现：
+  - 社区顶部导航只保留 `交流`、`问答`、管理员可见的 `管理`
+  - `+ 发讨论` / `+ 发问答` 移到对应列表页排序按钮前
+  - 社区发布页标签输入改为固定四标签按钮：`交流`、`问答`、`投诉建议`、`经验分享`
+  - 社区问答频道标签必填，未选标签时前端禁用提交
+  - 社区讨论频道标签可选，允许空标签
+  - 后端 `QuestionAdd.ValidateTags()` 已按 `ChannelType` 区分：`discussion` 允许空标签，`qa` 必填；非空标签均必须在白名单内
+  - 常规问答编辑与自问自答仍按 `qa` 规则要求至少一个白名单标签
+- 实际部署切换结果：
+  - 新 `DEPLOY_TAG`：`hotfix-20260508-165453-e4908275-navtags`
+  - 上一运行 tag：`hotfix-20260508-150342-6c23b02d-composehint`
+  - 仅热替换服务：`answer-app`
+  - 未重建 `vault-service`，未停止 PostgreSQL/Redis/Vault
+  - 未执行新增 SQL 或数据库版本迁移
+- 本轮回滚资源：
+  - 环境备份：`/opt/niming-community-predeploy/.env.bak.20260508-170810.hotfix-20260508-165453-e4908275-navtags`
+  - 回滚脚本：`/opt/niming-community-predeploy/rollback-hotfix-20260508-165453-e4908275-navtags.sh`
+  - 发布记录：`/opt/niming-community-predeploy/release-hotfix-20260508-165453-e4908275-navtags.txt`
+- 已验证：
+  - `npx tsc --noEmit` 通过
+  - `pnpm build` 通过
+  - `go build ./internal/...` 通过
+  - 本地 Docker 镜像构建成功：`niming-answer-app:hotfix-20260508-165453-e4908275-navtags`
+  - 远端 `answer-app` 切换后为 `healthy`
+  - `https://forum.xingyuanjituan.cn/community` 返回 `200`
+  - `https://forum.xingyuanjituan.cn/community/qa` 返回 `200`
+  - `https://forum.xingyuanjituan.cn/community/questions/new` 返回 `200`
+  - `https://forum.xingyuanjituan.cn/community/discussions/new` 返回 `200`
+  - 远端容器二进制中已包含 `+ 发问答`、`+ 发讨论`、四个固定标签和 `请选择一个或多个标签`
+  - 远端容器二进制中未再出现 `Culture, Workflow`
 
 ## 2026-04-30 进展补充
 
