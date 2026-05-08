@@ -98,20 +98,6 @@ const Layout: FC = () => {
           <NavLink to="/community/qa" className="community-nav-link">
             问答
           </NavLink>
-          {user.access_token && (
-            <>
-              <NavLink
-                to="/community/discussions/new"
-                className="community-nav-link">
-                发讨论
-              </NavLink>
-              <NavLink
-                to="/community/questions/new"
-                className="community-nav-link">
-                发问答
-              </NavLink>
-            </>
-          )}
           {(user.role_id === 2 || user.role_id === 3) && (
             <NavLink to="/community/moderation" className="community-nav-link">
               管理

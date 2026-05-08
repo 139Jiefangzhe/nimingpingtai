@@ -37,6 +37,8 @@ const parseTags = (raw: string) => {
     }));
 };
 
+const FIXED_TAGS = ['交流', '问答', '投诉建议', '经验分享'];
+
 const Compose: FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,7 +65,10 @@ const Compose: FC = () => {
   usePageTags(pageMeta);
 
   const handleSubmit = async () => {
-    if (!content.trim() || (channel === 'qa' && !title.trim())) {
+    if (
+      !content.trim() ||
+      (channel === 'qa' && (!title.trim() || parseTags(tags).length === 0))
+    ) {
       return;
     }
     try {
@@ -140,15 +145,50 @@ const Compose: FC = () => {
             <Form.Group className="mb-4">
               <Form.Label>
                 {channel === 'qa' ? '标签' : '标签（可选）'}
+                {channel === 'qa' && (
+                  <span className="text-danger ms-1">*</span>
+                )}
               </Form.Label>
-              <Form.Control
-                value={tags}
-                onChange={(event) => setTags(event.target.value)}
-                placeholder="多个标签用英文逗号分隔"
-              />
-              <Form.Text className="text-secondary">
-                请选择一个或多个标签
-              </Form.Text>
+              <div className="d-flex flex-wrap gap-2">
+                {FIXED_TAGS.map((tag) => {
+                  const selected = parseTags(tags).some(
+                    (item) => item.display_name === tag,
+                  );
+                  return (
+                    <Button
+                      key={tag}
+                      variant={selected ? 'primary' : 'outline-primary'}
+                      onClick={() => {
+                        const current = parseTags(tags);
+                        const exists = current.some(
+                          (item) => item.display_name === tag,
+                        );
+                        const newTags = exists
+                          ? current.filter((item) => item.display_name !== tag)
+                          : [
+                              ...current,
+                              {
+                                slug_name: tag.toLowerCase(),
+                                display_name: tag,
+                                original_text: tag,
+                              },
+                            ];
+                        setTags(
+                          newTags.map((item) => item.display_name).join(', '),
+                        );
+                      }}
+                      type="button"
+                      size="sm">
+                      {tag}
+                    </Button>
+                  );
+                })}
+              </div>
+              {channel === 'qa' && (
+                <Form.Text className="text-secondary">
+                  请选择一个或多个标签
+                </Form.Text>
+              )}
             </Form.Group>
 
             <div className="d-flex justify-content-end">
@@ -157,7 +197,8 @@ const Compose: FC = () => {
                 disabled={
                   submitting ||
                   !content.trim() ||
-                  (channel === 'qa' && !title.trim())
+                  (channel === 'qa' &&
+                    (!title.trim() || parseTags(tags).length === 0))
                 }>
                 {submitting ? '发布中...' : '立即发布'}
               </Button>

@@ -47,7 +47,10 @@ func allowedQuestionTagsText() string {
 	return strings.Join(AllowedQuestionTags, "、")
 }
 
-func validateAllowedQuestionTags(tags []*TagItem) error {
+func validateAllowedQuestionTags(tags []*TagItem, channelType string) error {
+	if channelType == entity.QuestionChannelDiscussion && len(tags) == 0 {
+		return nil
+	}
 	if len(tags) == 0 {
 		return fmt.Errorf("至少选择一个标签")
 	}
@@ -141,7 +144,7 @@ func (req *QuestionAdd) Check() (errFields []*validator.FormErrorField, err erro
 }
 
 func (req *QuestionAdd) ValidateTags() error {
-	return validateAllowedQuestionTags(req.Tags)
+	return validateAllowedQuestionTags(req.Tags, req.ChannelType)
 }
 
 type QuestionAddByAnswer struct {
@@ -184,7 +187,7 @@ func (req *QuestionAddByAnswer) Check() (errFields []*validator.FormErrorField, 
 }
 
 func (req *QuestionAddByAnswer) ValidateTags() error {
-	return validateAllowedQuestionTags(req.Tags)
+	return validateAllowedQuestionTags(req.Tags, entity.QuestionChannelQA)
 }
 
 type QuestionPermission struct {
@@ -262,7 +265,7 @@ func (req *QuestionUpdate) Check() (errFields []*validator.FormErrorField, err e
 }
 
 func (req *QuestionUpdate) ValidateTags() error {
-	return validateAllowedQuestionTags(req.Tags)
+	return validateAllowedQuestionTags(req.Tags, entity.QuestionChannelQA)
 }
 
 type QuestionBaseInfo struct {

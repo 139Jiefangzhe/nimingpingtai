@@ -75,7 +75,20 @@ const Feed: FC = () => {
               {channel === 'qa' ? '匿名问答' : '匿名交流'}
             </h2>
           </div>
-          <div className="d-flex flex-wrap gap-2">
+          <div className="d-flex flex-wrap gap-2 align-items-center">
+            {loggedUser?.access_token && (
+              <Button
+                as={Link as any}
+                to={
+                  channel === 'qa'
+                    ? '/community/questions/new'
+                    : '/community/discussions/new'
+                }
+                variant="primary"
+                size="sm">
+                {channel === 'qa' ? '+ 发问答' : '+ 发讨论'}
+              </Button>
+            )}
             {Object.entries(orderLabels).map(([key, label]) => {
               const current = searchParams.toString();
               const next = new URLSearchParams(current);
