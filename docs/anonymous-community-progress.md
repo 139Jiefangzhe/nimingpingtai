@@ -1,6 +1,6 @@
 # 企业微信匿名问答 + 帖子交流社区 二开进度
 
-更新时间：2026-05-07
+更新时间：2026-05-08
 
 ## 当前状态
 
@@ -11,7 +11,7 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:predeploy-20260507-00560492-communitytags`
+  - `niming-answer-app:hotfix-20260508-150342-6c23b02d-composehint`
   - `niming-vault-service:predeploy-20260507-00560492-communitytags`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
@@ -179,6 +179,36 @@
   - 固定标签前端 chunk 中未再出现 `TagSelector` / `maxTagLength` 自由输入标识
 - 未完成验证：
   - API 非法标签绕过测试需要有效登录态或 Bearer Token，本轮未伪造线上用户凭据，因此未直接调用创建问题 API
+
+## 2026-05-08 进展补充
+
+### 1. 匿名社区发布页标签示例文案热修复
+
+- 本次发布对应 GitHub 提交：
+  - `6c23b02d fix: remove community compose tag examples`
+- 已修改：
+  - `ui/src/pages/Community/Compose/index.tsx`
+  - 删除匿名问答/匿名讨论发布页的英文示例标签文案 `示例：Culture, Workflow, Product`
+  - 发布页标签输入默认值从 `Culture, Workflow` 改为空字符串
+  - 标签区域提示改为 `请选择一个或多个标签`
+- 实际部署切换结果：
+  - 新 `DEPLOY_TAG`：`hotfix-20260508-150342-6c23b02d-composehint`
+  - 上一运行 tag：`predeploy-20260507-00560492-communitytags`
+  - 仅热替换服务：`answer-app`
+  - 未重建 `vault-service`，未停止 PostgreSQL/Redis/Vault
+  - 未执行新增 SQL 或数据库版本迁移
+- 本轮回滚资源：
+  - 环境备份：`/opt/niming-community-predeploy/.env.bak.20260508-151814.hotfix-20260508-150342-6c23b02d-composehint`
+  - 回滚脚本：`/opt/niming-community-predeploy/rollback-hotfix-20260508-150342-6c23b02d-composehint.sh`
+  - 发布记录：`/opt/niming-community-predeploy/release-hotfix-20260508-150342-6c23b02d-composehint.txt`
+- 已验证：
+  - 本地 Docker 镜像构建成功：`niming-answer-app:hotfix-20260508-150342-6c23b02d-composehint`
+  - 远端 `answer-app` 切换后为 `healthy`
+  - `https://forum.xingyuanjituan.cn/community` 返回 `200`
+  - `https://forum.xingyuanjituan.cn/community/questions/new` 返回 `200`
+  - `https://forum.xingyuanjituan.cn/community/discussions/new` 返回 `200`
+  - 远端容器二进制中已包含 `请选择一个或多个标签`
+  - 远端容器二进制中未再出现 `示例：Culture, Workflow, Product` 或默认 `Culture, Workflow`
 
 ## 2026-04-30 进展补充
 
