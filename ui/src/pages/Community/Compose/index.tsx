@@ -45,7 +45,7 @@ const Compose: FC = () => {
     : 'discussion';
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [tags, setTags] = useState(channel === 'qa' ? 'Culture, Workflow' : '');
+  const [tags, setTags] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const pageMeta = useMemo(() => {
@@ -147,7 +147,7 @@ const Compose: FC = () => {
                 placeholder="多个标签用英文逗号分隔"
               />
               <Form.Text className="text-secondary">
-                示例：Culture, Workflow, Product
+                请选择一个或多个标签
               </Form.Text>
             </Form.Group>
 
