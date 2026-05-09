@@ -1,6 +1,6 @@
 # 企业微信匿名问答 + 帖子交流社区 二开进度
 
-更新时间：2026-05-08
+更新时间：2026-05-09
 
 ## 当前状态
 
@@ -11,7 +11,7 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:hotfix-20260508-165453-e4908275-navtags`
+  - `niming-answer-app:hotfix-20260509-174601-8a243edb-commentvote`
   - `niming-vault-service:predeploy-20260507-00560492-communitytags`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
@@ -39,6 +39,82 @@
   - 在当前 `WSL2` 环境中，容器内可直接访问地址为 `http://172.27.213.19:9080/community`
   - 宿主机局域网 IP 为 `10.7.1.161`
   - 若要通过 `http://10.7.1.161:9080/community` 访问，仍需在 Windows 管理员权限下额外配置 `portproxy` 与防火墙放行
+
+## 2026-05-09 进展补充
+
+### 1. 评论“未找到”问题已修复并发布预发
+
+- 根因定位：
+  - 社区详情接口返回的回复 ID 是原始 17 位 ID，例如 `10020000000000144`
+  - 原始回复 ID 传给 `uid.DeShortID` 不会出错
+  - 真正触发“评论未找到”的边界是空的可选 `reply_comment_id` 被解码成 `"0"`，导致后端按评论 ID `0` 查询并返回 not found
+- 后端修复：
+  - `CreateComment` 中回复 ID 改为直接使用 `ctx.Param("answerId")`
+  - `reply_comment_id` 和分页查询用的 `comment_id` 仅在非空时才执行短 ID 解码
+  - 新增 `decodeOptionalCommunityID`，保留空值为空字符串
+- 关键文件：
+  - `internal/controller/community_controller.go`
+
+### 2. 社区详情页已增加投票入口
+
+- 前端已在社区详情页增加轻量投票按钮：
+  - 问题标题右侧支持 ▲ / ▼
+  - 每条回复下方支持 ▲ / ▼
+  - 成功后优先使用接口返回的 `votes`，否则按方向做本地增减
+- 投票仍复用 Apache Answer 原有接口：
+  - `/answer/api/v1/vote/up`
+  - `/answer/api/v1/vote/down`
+- 关键文件：
+  - `ui/src/pages/Community/Detail/index.tsx`
+- 注意：
+  - 投票接口仍会走现有登录、权限和验证码频率策略
+  - 本次只新增社区版 UI 入口，没有绕过后端投票风控
+
+### 3. 预发热发布已完成
+
+- 新镜像：
+  - `niming-answer-app:hotfix-20260509-174601-8a243edb-commentvote`
+- 上一版本：
+  - `niming-answer-app:hotfix-20260508-165453-e4908275-navtags`
+- 远端主机：
+  - `47.94.135.253`
+- 远端目录：
+  - `/opt/niming-community-predeploy`
+- 本次只重建：
+  - `answer-app`
+- 未重建：
+  - `vault-service`
+  - 数据库
+- 远端发布记录：
+  - `/opt/niming-community-predeploy/release-hotfix-20260509-174601-8a243edb-commentvote.txt`
+- 远端 `.env` 备份：
+  - `/opt/niming-community-predeploy/.env.bak.20260509-183058.hotfix-20260509-174601-8a243edb-commentvote`
+- 回滚脚本：
+  - `/opt/niming-community-predeploy/rollback-hotfix-20260509-174601-8a243edb-commentvote.sh`
+
+### 4. 本次验证结果
+
+- 本地验证：
+  - `git diff --check` 通过
+  - `go build ./internal/...` 通过
+  - `cd ui && npx tsc --noEmit` 通过
+  - `cd ui && pnpm build` 通过
+- 镜像验证：
+  - Docker 镜像构建成功，大小约 `201MB`
+  - 镜像二进制包含 `已点赞`
+  - 镜像二进制包含 `decodeOptionalCommunityID`
+- 预发验证：
+  - `https://forum.xingyuanjituan.cn/community/questions/10010000000000143` 返回 `200`
+  - `https://forum.xingyuanjituan.cn/answer/api/v1/questions/10010000000000143` 返回 `200`
+  - API 返回回复原始 ID：`10020000000000144`
+  - 未登录评论接口返回 `401 Unauthorized`，不再表现为“未找到”
+  - 最近 5 分钟 `answer-app` 日志未出现 `comment.not_found`、`CommentNotFound`、`object.not_found` 或新错误
+
+### 5. 回滚命令
+
+```bash
+ssh root@47.94.135.253 'cd /opt/niming-community-predeploy && ./rollback-hotfix-20260509-174601-8a243edb-commentvote.sh'
+```
 
 ## 2026-05-07 进展补充
 
