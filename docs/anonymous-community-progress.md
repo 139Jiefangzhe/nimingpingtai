@@ -161,6 +161,34 @@ ssh root@47.94.135.253 'cd /opt/niming-community-predeploy && ./rollback-hotfix-
 ssh root@47.94.135.253 'cd /opt/niming-community-predeploy && ./rollback-hotfix-20260509-193502-c8d7a536-voteid.sh'
 ```
 
+### 7. 预发域名 HTTPS 入口故障已恢复
+
+- 故障时间：
+  - 2026-05-09 晚间发现 `https://forum.xingyuanjituan.cn/` 无法访问
+- 表现：
+  - 外部访问在 TLS 握手阶段失败，`curl` 返回 `tlsv1 alert internal error`
+  - `answer-app` 容器健康，`http://127.0.0.1:9080/community` 本地返回 `200`
+- 根因：
+  - `/opt/niming-community-ingress/Caddyfile` 中站点域名被写成 `forum.xingyuancapital.cn`
+  - 实际 DNS、Answer 环境变量和访问域名都是 `forum.xingyuanjituan.cn`
+  - Caddy 按错误域名加载站点，SNI 不匹配导致 HTTPS 握手失败
+- 修复：
+  - 已备份错误配置：
+    - `/opt/niming-community-ingress/Caddyfile.bak.20260509-213621.wrong-domain`
+  - 已将 Caddyfile 域名恢复为：
+    - `forum.xingyuanjituan.cn`
+  - 因为 Caddyfile 是单文件 bind mount，第一次 `sed -i` 只替换了宿主机 inode，容器内仍挂载旧 inode
+  - 已通过 `docker compose up -d --force-recreate caddy` 重建 Caddy 容器，让容器重新挂载修正后的配置
+- 当前验证：
+  - Caddy active config 的 host 已是 `forum.xingyuanjituan.cn`
+  - `https://forum.xingyuanjituan.cn/` 返回 `HTTP/2 200`
+  - `https://forum.xingyuanjituan.cn/community` 返回 `HTTP/2 200`
+  - 当前证书为 Let's Encrypt，`CN=forum.xingyuanjituan.cn`，有效期到 `2026-07-28`
+  - `answer-app` 仍保持 healthy，未重启应用容器
+- 后续注意：
+  - 单文件 bind mount 场景不要用 `sed -i` 后只 reload 容器内服务；如果发生 inode 替换，需要重建容器或用不替换 inode 的方式写入
+  - 入口配置应纳入仓库或发布脚本管理，避免手工改错域名
+
 ## 2026-05-07 进展补充
 
 ### 1. `/community` 已切换为正式企微授权入口
