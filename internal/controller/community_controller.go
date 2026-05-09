@@ -272,8 +272,8 @@ func (cc *CommunityController) CreateComment(ctx *gin.Context) {
 		}
 	}()
 
-	answerID := decodeCommunityID(ctx.Param("answerId"))
-	req.ReplyCommentID = decodeCommunityID(req.ReplyCommentID)
+	answerID := ctx.Param("answerId")
+	req.ReplyCommentID = decodeOptionalCommunityID(req.ReplyCommentID)
 	userID := middleware.GetLoginUserIDFromContext(ctx)
 	canList, err := cc.rankService.CheckOperationPermissions(ctx, userID, []string{
 		permission.CommentAdd,
@@ -328,8 +328,8 @@ func (cc *CommunityController) GetReplyComments(ctx *gin.Context) {
 	resp, err := cc.communityService.GetReplyComments(ctx, &schema.GetCommentWithPageReq{
 		Page:      req.Page,
 		PageSize:  req.PageSize,
-		ObjectID:  decodeCommunityID(ctx.Param("answerId")),
-		CommentID: decodeCommunityID(req.CommentID),
+		ObjectID:  ctx.Param("answerId"),
+		CommentID: decodeOptionalCommunityID(req.CommentID),
 		UserID:    userID,
 		CanEdit:   canList[0],
 		CanDelete: canList[1],
@@ -480,7 +480,7 @@ func discussionTitle(title string) string {
 	return title
 }
 
-func decodeCommunityID(id string) string {
+func decodeOptionalCommunityID(id string) string {
 	if strings.TrimSpace(id) == "" {
 		return ""
 	}

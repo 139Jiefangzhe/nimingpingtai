@@ -24,6 +24,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import { Tag } from '@/components';
 import { usePageTags } from '@/hooks';
 import { loggedUserInfoStore, toastStore } from '@/stores';
+import request from '@/utils/request';
 import {
   createCommunityComment,
   createCommunityReply,
@@ -36,6 +37,68 @@ import {
   CommunityChannelBadge,
   CommunityModerationBadge,
 } from '../shared';
+
+const VoteButtons: FC<{
+  objectId: string;
+  voteCount: number;
+  canVote: boolean;
+}> = ({ objectId, voteCount, canVote }) => {
+  const [count, setCount] = useState(voteCount);
+  const [voting, setVoting] = useState(false);
+
+  const handleVote = async (direction: 'up' | 'down') => {
+    if (!canVote || voting) {
+      return;
+    }
+
+    try {
+      setVoting(true);
+      const resp = await request.post<{
+        votes?: number;
+      }>(`/answer/api/v1/vote/${direction}`, {
+        object_id: objectId,
+      });
+      setCount(
+        typeof resp?.votes === 'number'
+          ? resp.votes
+          : (prev) => (direction === 'up' ? prev + 1 : prev - 1),
+      );
+      toastStore.getState().show({
+        msg: direction === 'up' ? '已点赞' : '已踩',
+        variant: 'success',
+      });
+    } catch (error: any) {
+      toastStore.getState().show({
+        msg: error?.message || '投票失败',
+        variant: 'danger',
+      });
+    } finally {
+      setVoting(false);
+    }
+  };
+
+  return (
+    <div className="d-flex align-items-center gap-2">
+      <Button
+        variant="outline-primary"
+        size="sm"
+        onClick={() => handleVote('up')}
+        disabled={!canVote || voting}
+        title="点赞">
+        ▲
+      </Button>
+      <span className="fw-semibold">{count}</span>
+      <Button
+        variant="outline-secondary"
+        size="sm"
+        onClick={() => handleVote('down')}
+        disabled={!canVote || voting}
+        title="踩">
+        ▼
+      </Button>
+    </div>
+  );
+};
 
 const ReplyComments: FC<{ answerId: string; canComment: boolean }> = ({
   answerId,
@@ -196,7 +259,14 @@ const Detail: FC = () => {
               />
             </div>
 
-            <h2 className="mb-4">{data.question.title}</h2>
+            <div className="d-flex justify-content-between align-items-start gap-3 mb-4">
+              <h2 className="mb-0">{data.question.title}</h2>
+              <VoteButtons
+                objectId={data.question.id}
+                voteCount={data.question.vote_count || 0}
+                canVote={canReply}
+              />
+            </div>
 
             <div className="d-flex align-items-center gap-3 mb-4">
               <CommunityAnonAvatar actor={data.question.user_info} size={44} />
@@ -259,8 +329,12 @@ const Detail: FC = () => {
                   dangerouslySetInnerHTML={{ __html: reply.html }}
                 />
 
-                <div className="small text-secondary mt-3">
-                  支持票数：{reply.vote_count || 0}
+                <div className="mt-3">
+                  <VoteButtons
+                    objectId={reply.id}
+                    voteCount={reply.vote_count || 0}
+                    canVote={canReply}
+                  />
                 </div>
 
                 <ReplyComments answerId={reply.id} canComment={canReply} />
