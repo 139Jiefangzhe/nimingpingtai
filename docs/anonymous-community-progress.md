@@ -11,7 +11,7 @@
   - 预发目录：`/opt/niming-community-predeploy`
   - 入口链路：`cloudflared -> caddy -> 127.0.0.1:9080 -> answer-app`
 - 当前运行中的预发镜像标签：
-  - `niming-answer-app:hotfix-20260509-174601-8a243edb-commentvote`
+  - `niming-answer-app:hotfix-20260509-193502-c8d7a536-voteid`
   - `niming-vault-service:predeploy-20260507-00560492-communitytags`
 - 本轮已完成“普通登录用户去除声望门槛”的后端、前端、默认配置和存量数据迁移：
   - 数据库版本已从 `34` 升级到 `35`
@@ -114,6 +114,51 @@
 
 ```bash
 ssh root@47.94.135.253 'cd /opt/niming-community-predeploy && ./rollback-hotfix-20260509-174601-8a243edb-commentvote.sh'
+```
+
+### 6. 投票 ObjectID 原始 ID 兼容修复已发布
+
+- 根因定位：
+  - 社区详情页投票按钮传给 `/answer/api/v1/vote/up` 和 `/answer/api/v1/vote/down` 的是原始 17 位对象 ID
+  - 原有 `VoteController` 无条件执行 `uid.DeShortID`，会把社区原始 ID 误解码，导致投票落到错误对象或返回失败
+- 后端修复：
+  - `VoteUp` 和 `VoteDown` 统一改为 `decodeVoteObjectID`
+  - 短 ID 仍正常解码为原始 ID
+  - 原始 ID、空 ID、解码结果为空或 `"0"` 时保留原值
+- 关键文件：
+  - `internal/controller/vote_controller.go`
+  - `internal/controller/vote_controller_test.go`
+- 新镜像：
+  - `niming-answer-app:hotfix-20260509-193502-c8d7a536-voteid`
+- 上一版本：
+  - `niming-answer-app:hotfix-20260509-174601-8a243edb-commentvote`
+- 本次只重建：
+  - `answer-app`
+- 未重建：
+  - `vault-service`
+  - 数据库
+- 远端发布记录：
+  - `/opt/niming-community-predeploy/release-hotfix-20260509-193502-c8d7a536-voteid.txt`
+- 远端 `.env` 备份：
+  - `/opt/niming-community-predeploy/.env.bak.20260509-200726.hotfix-20260509-193502-c8d7a536-voteid`
+- 回滚脚本：
+  - `/opt/niming-community-predeploy/rollback-hotfix-20260509-193502-c8d7a536-voteid.sh`
+- 本地验证：
+  - `go test ./internal/controller -run TestDecodeVoteObjectID -v` 通过
+  - `go build ./internal/...` 通过
+  - `go build ./...` 通过
+  - `git diff --check` 通过
+- 预发验证：
+  - 当前远端 `DEPLOY_TAG=hotfix-20260509-193502-c8d7a536-voteid`
+  - `answer version 2.0.0`，`revision: c8d7a536`
+  - `https://forum.xingyuanjituan.cn/community` 返回 `200`
+  - `https://forum.xingyuanjituan.cn/answer/api/v1/questions/10010000000000143` 返回 `200`
+  - 未登录用原始 ID 调用投票接口返回 `401 Unauthorized`，未触发对象不存在或 ID 解码错误
+  - 最近 5 分钟 `answer-app` 日志未出现 `vote`、`object.not_found`、`not_found`、`panic`、`fatal`、`error`
+- 回滚命令：
+
+```bash
+ssh root@47.94.135.253 'cd /opt/niming-community-predeploy && ./rollback-hotfix-20260509-193502-c8d7a536-voteid.sh'
 ```
 
 ## 2026-05-07 进展补充
