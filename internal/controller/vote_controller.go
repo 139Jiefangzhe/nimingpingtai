@@ -70,7 +70,7 @@ func (vc *VoteController) VoteUp(ctx *gin.Context) {
 	if handler.BindAndCheck(ctx, req) {
 		return
 	}
-	req.ObjectID = uid.DeShortID(req.ObjectID)
+	req.ObjectID = decodeVoteObjectID(req.ObjectID)
 	req.UserID = middleware.GetLoginUserIDFromContext(ctx)
 
 	can, needRank, err := vc.rankService.CheckVotePermission(ctx, req.UserID, req.ObjectID, true)
@@ -124,7 +124,7 @@ func (vc *VoteController) VoteDown(ctx *gin.Context) {
 	if handler.BindAndCheck(ctx, req) {
 		return
 	}
-	req.ObjectID = uid.DeShortID(req.ObjectID)
+	req.ObjectID = decodeVoteObjectID(req.ObjectID)
 	req.UserID = middleware.GetLoginUserIDFromContext(ctx)
 	isAdmin := middleware.GetUserIsAdminModerator(ctx)
 
@@ -183,4 +183,12 @@ func (vc *VoteController) UserVotes(ctx *gin.Context) {
 
 	resp, err := vc.VoteService.ListUserVotes(ctx, req)
 	handler.HandleResponse(ctx, err, resp)
+}
+
+func decodeVoteObjectID(objectID string) string {
+	decoded := uid.DeShortID(objectID)
+	if decoded == "" || decoded == "0" {
+		return objectID
+	}
+	return decoded
 }
