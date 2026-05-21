@@ -511,6 +511,11 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 		QID(question.ID, question.UserID))
 
 	questionInfo, err = qs.GetQuestion(ctx, question.ID, question.UserID, req.QuestionPermission)
+	if err != nil {
+		log.Errorf("load question after create failed, question_id=%s user_id=%s: %v", question.ID, question.UserID, err)
+		questionInfo = qs.questioncommon.ShowFormat(ctx, question)
+		err = nil
+	}
 	return
 }
 

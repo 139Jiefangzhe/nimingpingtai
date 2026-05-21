@@ -8465,7 +8465,7 @@
                 },
                 "value": {
                     "type": "integer",
-                    "minimum": 1
+                    "minimum": 0
                 }
             }
         },
@@ -9093,6 +9093,23 @@
                         "closed",
                         "deleted"
                     ]
+                }
+            }
+        },
+        "schema.AnonymousUserInfo": {
+            "type": "object",
+            "properties": {
+                "anon_subject_id": {
+                    "type": "string"
+                },
+                "avatar_seed": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
                 }
             }
         },
@@ -9793,6 +9810,14 @@
                     "description": "reply comment id",
                     "type": "string"
                 },
+                "reply_user_anonymous": {
+                    "description": "anonymous reply user profile",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.AnonymousUserInfo"
+                        }
+                    ]
+                },
                 "reply_user_display_name": {
                     "description": "reply user display name",
                     "type": "string"
@@ -9808,6 +9833,14 @@
                 "reply_username": {
                     "description": "reply user username",
                     "type": "string"
+                },
+                "user_anonymous": {
+                    "description": "anonymous user profile",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.AnonymousUserInfo"
+                        }
+                    ]
                 },
                 "user_avatar": {
                     "description": "user avatar",
@@ -10964,6 +10997,9 @@
                     "description": "captcha_id",
                     "type": "string"
                 },
+                "channel_type": {
+                    "type": "string"
+                },
                 "content": {
                     "description": "content",
                     "type": "string",
@@ -11043,6 +11079,9 @@
                 "answered": {
                     "type": "boolean"
                 },
+                "channel_type": {
+                    "type": "string"
+                },
                 "collected": {
                     "type": "boolean"
                 },
@@ -11095,6 +11134,9 @@
                         "$ref": "#/definitions/schema.PermissionMemberAction"
                     }
                 },
+                "moderation_state": {
+                    "type": "string"
+                },
                 "operation": {
                     "$ref": "#/definitions/schema.Operation"
                 },
@@ -11134,6 +11176,9 @@
                 "view_count": {
                     "type": "integer"
                 },
+                "visibility_mode": {
+                    "type": "string"
+                },
                 "vote_count": {
                     "type": "integer"
                 },
@@ -11145,6 +11190,13 @@
         "schema.QuestionPageReq": {
             "type": "object",
             "properties": {
+                "channel": {
+                    "type": "string",
+                    "enum": [
+                        "qa",
+                        "discussion"
+                    ]
+                },
                 "in_days": {
                     "type": "integer",
                     "minimum": 1
@@ -11189,6 +11241,9 @@
                 "answer_count": {
                     "type": "integer"
                 },
+                "channel_type": {
+                    "type": "string"
+                },
                 "collection_count": {
                     "type": "integer"
                 },
@@ -11205,6 +11260,9 @@
                     "type": "string"
                 },
                 "last_answer_id": {
+                    "type": "string"
+                },
+                "moderation_state": {
                     "type": "string"
                 },
                 "operated_at": {
@@ -11247,6 +11305,9 @@
                     "description": "question statistical information",
                     "type": "integer"
                 },
+                "visibility_mode": {
+                    "type": "string"
+                },
                 "vote_count": {
                     "type": "integer"
                 }
@@ -11255,6 +11316,9 @@
         "schema.QuestionPageRespOperator": {
             "type": "object",
             "properties": {
+                "anonymous": {
+                    "$ref": "#/definitions/schema.AnonymousUserInfo"
+                },
                 "avatar": {
                     "type": "string"
                 },
@@ -13043,6 +13107,9 @@
         "schema.UserBasicInfo": {
             "type": "object",
             "properties": {
+                "anonymous": {
+                    "$ref": "#/definitions/schema.AnonymousUserInfo"
+                },
                 "avatar": {
                     "type": "string"
                 },

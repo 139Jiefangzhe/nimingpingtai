@@ -39,6 +39,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
 	"github.com/segmentfault/pacman/errors"
+	"github.com/segmentfault/pacman/log"
 )
 
 // QuestionController question controller
@@ -587,15 +588,51 @@ func (qc *QuestionController) AddQuestionByAnswer(ctx *gin.Context) {
 		answerReq.HTML = req.AnswerHTML
 		answerID, err := qc.answerService.Insert(ctx, answerReq)
 		if err != nil {
+			if rollbackErr := qc.questionService.RemoveQuestion(ctx, &schema.RemoveQuestionReq{
+				ID:      questionInfo.ID,
+				UserID:  req.UserID,
+				IsAdmin: true,
+			}); rollbackErr != nil {
+				log.Errorf("rollback question after answer insert failed, question_id=%s user_id=%s: %v", questionInfo.ID, req.UserID, rollbackErr)
+			}
+			log.Errorf("create question answer failed, question_id=%s user_id=%s: %v", questionInfo.ID, req.UserID, err)
 			handler.HandleResponse(ctx, err, nil)
 			return
 		}
 		info, questionInfo, has, err := qc.answerService.Get(ctx, answerID, req.UserID)
 		if err != nil {
+			if rollbackErr := qc.answerService.RemoveAnswer(ctx, &schema.RemoveAnswerReq{
+				ID:     answerID,
+				UserID: req.UserID,
+			}); rollbackErr != nil {
+				log.Errorf("rollback answer after answer lookup failed, answer_id=%s user_id=%s: %v", answerID, req.UserID, rollbackErr)
+			}
+			if rollbackErr := qc.questionService.RemoveQuestion(ctx, &schema.RemoveQuestionReq{
+				ID:      questionInfo.ID,
+				UserID:  req.UserID,
+				IsAdmin: true,
+			}); rollbackErr != nil {
+				log.Errorf("rollback question after answer lookup failed, question_id=%s user_id=%s: %v", questionInfo.ID, req.UserID, rollbackErr)
+			}
+			log.Errorf("load answer after create failed, answer_id=%s question_id=%s user_id=%s: %v", answerID, questionInfo.ID, req.UserID, err)
 			handler.HandleResponse(ctx, err, nil)
 			return
 		}
 		if !has {
+			if rollbackErr := qc.answerService.RemoveAnswer(ctx, &schema.RemoveAnswerReq{
+				ID:     answerID,
+				UserID: req.UserID,
+			}); rollbackErr != nil {
+				log.Errorf("rollback answer after answer missing failed, answer_id=%s user_id=%s: %v", answerID, req.UserID, rollbackErr)
+			}
+			if rollbackErr := qc.questionService.RemoveQuestion(ctx, &schema.RemoveQuestionReq{
+				ID:      questionInfo.ID,
+				UserID:  req.UserID,
+				IsAdmin: true,
+			}); rollbackErr != nil {
+				log.Errorf("rollback question after answer missing failed, question_id=%s user_id=%s: %v", questionInfo.ID, req.UserID, rollbackErr)
+			}
+			log.Errorf("answer missing after create, answer_id=%s question_id=%s user_id=%s", answerID, questionInfo.ID, req.UserID)
 			handler.HandleResponse(ctx, nil, nil)
 			return
 		}

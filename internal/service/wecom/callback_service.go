@@ -249,7 +249,7 @@ func (s *Service) resolveNewUser(ctx context.Context, cfg *config, userID string
 		Avatar:      profile.Avatar,
 		Email:       profile.Email,
 		Mobile:      profile.Mobile,
-		Department:  joinDepartmentIDs(profile.Department),
+		Department:  profile.Department,
 		Position:    profile.Position,
 	})
 	return err
@@ -259,7 +259,7 @@ func (s *Service) syncUserProfile(ctx context.Context, cfg *config, userID strin
 	return s.resolveNewUser(ctx, cfg, userID)
 }
 
-func (s *Service) fetchEventUserProfile(ctx context.Context, cfg *config, userID string) (*userProfileResponse, error) {
+func (s *Service) fetchEventUserProfile(ctx context.Context, cfg *config, userID string) (*wecomUserProfile, error) {
 	if strings.TrimSpace(userID) == "" {
 		return nil, fmt.Errorf("userID is required")
 	}

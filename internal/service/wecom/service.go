@@ -108,13 +108,13 @@ func (s *Service) HandleAuthCallback(ctx context.Context, code, state string) (*
 		return nil, err
 	}
 	vaultResp, err := s.resolveIdentity(ctx, cfg, &schema.VaultResolveRequest{
-		CorpID:      cfg.CorpID,
+		CorpID:      wecomUser.CorpID,
 		UserID:      wecomUser.UserID,
 		DisplayName: wecomUser.Name,
 		Avatar:      wecomUser.Avatar,
 		Email:       wecomUser.Email,
 		Mobile:      wecomUser.Mobile,
-		Department:  joinDepartmentIDs(wecomUser.Department),
+		Department:  wecomUser.Department,
 		Position:    wecomUser.Position,
 	})
 	if err != nil {
@@ -303,7 +303,33 @@ type userProfileResponse struct {
 	Department []int  `json:"department"`
 }
 
-func (s *Service) fetchUserProfile(ctx context.Context, cfg *config, code string) (*userProfileResponse, error) {
+type linkedCorpUserProfileResponse struct {
+	ErrCode  int    `json:"errcode"`
+	ErrMsg   string `json:"errmsg"`
+	UserInfo struct {
+		UserID     string   `json:"userid"`
+		CorpID     string   `json:"corpid"`
+		Name       string   `json:"name"`
+		Avatar     string   `json:"avatar"`
+		Email      string   `json:"email"`
+		Mobile     string   `json:"mobile"`
+		Position   string   `json:"position"`
+		Department []string `json:"department"`
+	} `json:"user_info"`
+}
+
+type wecomUserProfile struct {
+	CorpID     string
+	UserID     string
+	Name       string
+	Avatar     string
+	Email      string
+	Mobile     string
+	Position   string
+	Department string
+}
+
+func (s *Service) fetchUserProfile(ctx context.Context, cfg *config, code string) (*wecomUserProfile, error) {
 	if strings.TrimSpace(code) == "" {
 		return nil, errors.BadRequest(reason.RequestFormatError)
 	}
@@ -344,10 +370,14 @@ func (s *Service) fetchUserProfile(ctx context.Context, cfg *config, code string
 		return nil, errors.BadRequest(reason.UnauthorizedError)
 	}
 
+	if isLinkedCorpUserID(authResp.UserID) {
+		return s.fetchLinkedCorpUserProfileByUserID(ctx, cfg, accessToken, authResp.UserID)
+	}
+
 	return s.fetchUserProfileByUserID(ctx, cfg, accessToken, authResp.UserID)
 }
 
-func (s *Service) fetchUserProfileByUserID(ctx context.Context, cfg *config, accessToken, userID string) (*userProfileResponse, error) {
+func (s *Service) fetchUserProfileByUserID(ctx context.Context, cfg *config, accessToken, userID string) (*wecomUserProfile, error) {
 	if strings.TrimSpace(userID) == "" {
 		return nil, errors.BadRequest(reason.RequestFormatError)
 	}
@@ -376,7 +406,63 @@ func (s *Service) fetchUserProfileByUserID(ctx context.Context, cfg *config, acc
 		log.Warnf("wecom user/get returned empty userid errcode=%d errmsg=%s", userResp.ErrCode, userResp.ErrMsg)
 		return nil, errors.BadRequest(reason.UserNotFound)
 	}
-	return userResp, nil
+	return &wecomUserProfile{
+		CorpID:     cfg.CorpID,
+		UserID:     userResp.UserID,
+		Name:       userResp.Name,
+		Avatar:     userResp.Avatar,
+		Email:      userResp.Email,
+		Mobile:     userResp.Mobile,
+		Position:   userResp.Position,
+		Department: joinDepartmentIntIDs(userResp.Department),
+	}, nil
+}
+
+func (s *Service) fetchLinkedCorpUserProfileByUserID(ctx context.Context, cfg *config, accessToken, userID string) (*wecomUserProfile, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.BadRequest(reason.RequestFormatError)
+	}
+	if accessToken == "" {
+		var err error
+		accessToken, err = s.getAccessToken(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	userResp := &linkedCorpUserProfileResponse{}
+	_, err := s.httpClient.R().
+		SetContext(ctx).
+		SetQueryParam("access_token", accessToken).
+		SetBody(map[string]string{"userid": userID}).
+		SetResult(userResp).
+		Post("https://qyapi.weixin.qq.com/cgi-bin/linkedcorp/user/get")
+	if err != nil {
+		return nil, err
+	}
+	log.Infof(
+		"wecom linkedcorp/user/get result errcode=%d errmsg=%s userid=%q corpid=%q name=%q department_count=%d",
+		userResp.ErrCode,
+		userResp.ErrMsg,
+		userResp.UserInfo.UserID,
+		userResp.UserInfo.CorpID,
+		userResp.UserInfo.Name,
+		len(userResp.UserInfo.Department),
+	)
+	if userResp.UserInfo.UserID == "" || userResp.UserInfo.CorpID == "" {
+		log.Warnf("wecom linkedcorp/user/get returned empty identity errcode=%d errmsg=%s", userResp.ErrCode, userResp.ErrMsg)
+		return nil, errors.BadRequest(reason.UserNotFound)
+	}
+	return &wecomUserProfile{
+		CorpID:     userResp.UserInfo.CorpID,
+		UserID:     userResp.UserInfo.UserID,
+		Name:       userResp.UserInfo.Name,
+		Avatar:     userResp.UserInfo.Avatar,
+		Email:      userResp.UserInfo.Email,
+		Mobile:     userResp.UserInfo.Mobile,
+		Position:   userResp.UserInfo.Position,
+		Department: strings.Join(userResp.UserInfo.Department, ","),
+	}, nil
 }
 
 func (s *Service) getAccessToken(ctx context.Context, cfg *config) (string, error) {
@@ -507,7 +593,15 @@ func loadConfig() (*config, error) {
 	return cfg, nil
 }
 
-func joinDepartmentIDs(ids []int) string {
+func isLinkedCorpUserID(userID string) bool {
+	if userID == "" {
+		return false
+	}
+	parts := strings.SplitN(userID, "/", 2)
+	return len(parts) == 2 && parts[0] != "" && parts[1] != ""
+}
+
+func joinDepartmentIntIDs(ids []int) string {
 	if len(ids) == 0 {
 		return ""
 	}
