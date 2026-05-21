@@ -186,7 +186,7 @@ export const createCommunityPost = (
     channel === 'qa'
       ? '/answer/api/v1/questions'
       : '/answer/api/v1/discussions';
-  return request.post(apiUrl, params);
+  return request.post(apiUrl, params, { passingError: true });
 };
 
 export const createCommunityReply = (

@@ -107,6 +107,11 @@ func (cc *CommunityController) CreateQuestion(ctx *gin.Context) {
 		CaptchaCode: req.CaptchaCode,
 		ChannelType: entity.QuestionChannelQA,
 	}
+	userID := middleware.GetLoginUserIDFromContext(ctx)
+	if _, err := cc.communityService.EnsureCommunityTags(ctx, userID); err != nil {
+		handler.HandleResponse(ctx, err, nil)
+		return
+	}
 	linkURLLimitUser, isAdmin, checkErrFields, err := cc.prepareTopicCreate(ctx, addReq)
 	errFields = append(errFields, checkErrFields...)
 	if err != nil {
@@ -118,7 +123,6 @@ func (cc *CommunityController) CreateQuestion(ctx *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetLoginUserIDFromContext(ctx)
 	resp, err := cc.communityService.CreateQuestion(ctx, req, userID, ctx.ClientIP(), ctx.GetHeader("User-Agent"))
 	if err != nil {
 		if fieldErrs, ok := resp.([]*validator.FormErrorField); ok {
@@ -160,6 +164,11 @@ func (cc *CommunityController) CreateDiscussion(ctx *gin.Context) {
 		CaptchaCode: req.CaptchaCode,
 		ChannelType: entity.QuestionChannelDiscussion,
 	}
+	userID := middleware.GetLoginUserIDFromContext(ctx)
+	if _, err := cc.communityService.EnsureCommunityTags(ctx, userID); err != nil {
+		handler.HandleResponse(ctx, err, nil)
+		return
+	}
 	linkURLLimitUser, isAdmin, checkErrFields, err := cc.prepareTopicCreate(ctx, addReq)
 	errFields = append(errFields, checkErrFields...)
 	if err != nil {
@@ -171,7 +180,6 @@ func (cc *CommunityController) CreateDiscussion(ctx *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetLoginUserIDFromContext(ctx)
 	resp, err := cc.communityService.CreateDiscussion(ctx, req, userID, ctx.ClientIP(), ctx.GetHeader("User-Agent"))
 	if err != nil {
 		if fieldErrs, ok := resp.([]*validator.FormErrorField); ok {

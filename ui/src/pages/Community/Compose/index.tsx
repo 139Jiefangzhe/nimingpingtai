@@ -25,6 +25,18 @@ import { usePageTags } from '@/hooks';
 import { toastStore } from '@/stores';
 import { createCommunityPost } from '@/services/client/community';
 
+const getPublishErrorMessage = (error: any) => {
+  return (
+    error?.msg ||
+    error?.message ||
+    error?.list?.[0]?.error_msg ||
+    error?.list?.[0]?.errorMsg ||
+    error?.data?.[0]?.error_msg ||
+    error?.data?.[0]?.errorMsg ||
+    '发布失败'
+  );
+};
+
 const parseTags = (raw: string) => {
   return raw
     .split(/[，,]/)
@@ -97,7 +109,7 @@ const Compose: FC = () => {
       );
     } catch (error: any) {
       toastStore.getState().show({
-        msg: error?.message || '发布失败',
+        msg: getPublishErrorMessage(error),
         variant: 'danger',
       });
     } finally {

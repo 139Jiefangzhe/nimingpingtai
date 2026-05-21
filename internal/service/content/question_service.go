@@ -437,17 +437,26 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 	if err != nil {
 		return
 	}
+	rollbackCreatedQuestion := func(cause string, causeErr error) {
+		if removeErr := qs.questionRepo.RemoveQuestion(ctx, question.ID); removeErr != nil {
+			log.Errorf("rollback created question failed after %s, question_id=%s user_id=%s: %v; original error: %v",
+				cause, question.ID, question.UserID, removeErr, causeErr)
+		}
+	}
 	question.Status = qs.reviewService.AddQuestionReview(ctx, question, req.Tags, req.IP, req.UserAgent)
 	if err := qs.questionRepo.UpdateQuestionStatus(ctx, question.ID, question.Status); err != nil {
+		rollbackCreatedQuestion("update question status", err)
 		return nil, err
 	}
 	if question.Status == entity.QuestionStatusAvailable {
 		question.ParsedText, err = qs.questioncommon.UpdateQuestionLink(ctx, question.ID, "", question.ParsedText, question.OriginalText)
 		if err != nil {
+			rollbackCreatedQuestion("update question links", err)
 			return nil, err
 		}
 		err = qs.questionRepo.UpdateQuestion(ctx, question, []string{"parsed_text"})
 		if err != nil {
+			rollbackCreatedQuestion("update parsed text", err)
 			return nil, err
 		}
 	}
@@ -458,6 +467,7 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 		objectTagData.UserID = req.UserID
 		errorlist, err := qs.tagCommon.ObjectChangeTag(ctx, &objectTagData, minimumTags)
 		if err != nil {
+			rollbackCreatedQuestion("change question tags", err)
 			return errorlist, err
 		}
 	}
@@ -474,6 +484,7 @@ func (qs *QuestionService) AddQuestion(ctx context.Context, req *schema.Question
 	revisionDTO.Content = string(infoJSON)
 	revisionID, err := qs.revisionService.AddRevision(ctx, revisionDTO, true)
 	if err != nil {
+		rollbackCreatedQuestion("add question revision", err)
 		return
 	}
 

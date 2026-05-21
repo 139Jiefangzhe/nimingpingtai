@@ -101,7 +101,7 @@ class Request {
         };
 
         if (status === 400) {
-          if (data?.err_type && errConfig?.passingError) {
+          if (errConfig?.passingError) {
             return Promise.reject(errorObject);
           }
           if (data?.err_type) {
@@ -233,7 +233,7 @@ class Request {
   public post<T = any>(
     url: string,
     data?: any,
-    config?: AxiosRequestConfig,
+    config?: ApiConfig,
   ): Promise<T> {
     return this.instance.post(url, data, config);
   }
